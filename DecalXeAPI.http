@@ -1,0 +1,6 @@
+@DecalXeAPI_HostAddress = http://localhost:5095
+
+GET {{DecalXeAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
