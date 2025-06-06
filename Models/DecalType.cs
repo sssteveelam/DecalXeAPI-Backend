@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace DecalXeAPI.Models
 {
@@ -19,6 +20,7 @@ namespace DecalXeAPI.Models
         public decimal? Height { get; set; } // Chiều cao
 
         // Navigation Property: Một DecalType có thể được dùng trong nhiều DecalService.
+        [JsonIgnore]
         public ICollection<DecalService>? DecalServices { get; set; }
     }
 }

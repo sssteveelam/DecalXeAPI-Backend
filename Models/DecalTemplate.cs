@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace DecalXeAPI.Models
 {
@@ -23,6 +24,7 @@ namespace DecalXeAPI.Models
         public DecalType? DecalType { get; set; }
 
         // Navigation Property: Một DecalTemplate có thể được dùng trong nhiều ServiceDecalTemplate (bảng trung gian)
+        [JsonIgnore]
         public ICollection<ServiceDecalTemplate>? ServiceDecalTemplates { get; set; }
     }
 }

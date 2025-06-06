@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System; // Để dùng DateTime
+using System.Text.Json.Serialization;
+
 
 namespace DecalXeAPI.Models
 {
@@ -22,6 +24,7 @@ namespace DecalXeAPI.Models
         public decimal DiscountPercentage { get; set; } // Phần trăm giảm giá (ví dụ: 0.1 cho 10%)
 
         // Navigation Property: Một Promotion có thể được áp dụng cho nhiều Payments
+        [JsonIgnore]
         public ICollection<Payment>? Payments { get; set; }
     }
 }

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations; // Để dùng thuộc tính [Key] và [Required]
 using System.ComponentModel.DataAnnotations.Schema; // Để dùng [Column] nếu cần kiểu dữ liệu cụ thể cho DB
+using System.Text.Json.Serialization; // <-- THÊM DÒNG NÀY
 
 namespace DecalXeAPI.Models
 {
@@ -18,6 +19,8 @@ namespace DecalXeAPI.Models
         // Mặc dù bây giờ chưa có Account, nhưng mình cứ khai báo sẵn để sau này dễ dàng liên kết.
         // Dấu '?' sau ICollection<Account> có nghĩa là tập hợp này có thể rỗng (null)
         // trước khi có bất kỳ Account nào được liên kết.
+        [JsonIgnore] 
+
         public ICollection<Account>? Accounts { get; set; }
     }
 }

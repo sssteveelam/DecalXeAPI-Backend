@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System; // Để dùng TimeSpan
+using System.Text.Json.Serialization;
 
 namespace DecalXeAPI.Models
 {
@@ -17,6 +18,7 @@ namespace DecalXeAPI.Models
         public int DurationMinutes { get; set; } // Thời lượng của slot (ví dụ: 30 phút)
 
         // Navigation Property: Một TimeSlotDefinition có thể liên kết với nhiều ScheduledWorkUnit.
+        [JsonIgnore]
         public ICollection<ScheduledWorkUnit>? ScheduledWorkUnits { get; set; }
     }
 }

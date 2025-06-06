@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System; // Để dùng DateTime
+using System.Text.Json.Serialization;
+
 
 namespace DecalXeAPI.Models
 {
@@ -33,15 +35,19 @@ namespace DecalXeAPI.Models
         public Employee? AssignedEmployee { get; set; }
 
         // Navigation Properties cho các mối quan hệ một-nhiều
+        [JsonIgnore]
         public ICollection<OrderDetail>? OrderDetails { get; set; } // Một Order có nhiều OrderDetail
+        [JsonIgnore]
         public ICollection<Payment>? Payments { get; set; } // Một Order có nhiều Payment
+        [JsonIgnore]
         public ICollection<ScheduledWorkUnit>? ScheduledWorkUnits { get; set; } // Một Order có nhiều ScheduledWorkUnit (thời gian thi công)
 
         // Navigation Properties cho các mối quan hệ một-một
         public Design? Design { get; set; } // Một Order có một Design (cho dịch vụ tùy chỉnh)
         public Feedback? Feedback { get; set; } // Một Order có một Feedback (sau khi hoàn thành)
-        public Warranty? Warranty { get; set; } // Một Order có một Warranty
 
+        public Warranty? Warranty { get; set; } // Một Order có một Warranty
+        [JsonIgnore]
         public CustomServiceRequest? CustomServiceRequest { get; set; }
 
     }

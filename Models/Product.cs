@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema; // Để dùng [Column]
+using System.Text.Json.Serialization;
 
 namespace DecalXeAPI.Models
 {
@@ -29,6 +30,7 @@ namespace DecalXeAPI.Models
         public string? Category { get; set; } // Ví dụ: "Decal", "Hóa chất", "Dụng cụ"
 
         // Navigation Property: Một Product có thể được dùng trong nhiều ServiceProduct.
+        [JsonIgnore]
         public ICollection<ServiceProduct>? ServiceProducts { get; set; }
     }
 }

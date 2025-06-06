@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema; // Để dùng thuộc tính [ForeignKey]
+using System.Text.Json.Serialization; // <-- THÊM DÒNG NÀY
 
 namespace DecalXeAPI.Models
 {
@@ -24,11 +25,14 @@ namespace DecalXeAPI.Models
 
         // Navigation Property (quan hệ một-một hoặc một-nhiều về phía "một")
         // Một Account có thể có một Role. Dấu '?' nghĩa là có thể null nếu RoleID null
+        [JsonIgnore]
         public Role? Role { get; set; }
 
         // Navigation Properties cho quan hệ 1-1 với Customer và Employee
         // Một Account có thể là Customer hoặc Employee (hoặc cả hai nếu thiết kế cho phép)
+        [JsonIgnore]
         public Customer? Customer { get; set; }
+        [JsonIgnore]
         public Employee? Employee { get; set; }
     }
 }

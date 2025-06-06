@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System; // Để dùng DateTime
+using System.Text.Json.Serialization;
 
 namespace DecalXeAPI.Models
 {
@@ -21,6 +22,7 @@ namespace DecalXeAPI.Models
         public int TotalAvailableWorkUnits { get; set; } // Tổng số xuất công khả dụng trong ngày
 
         // Navigation Property: Một TechnicianDailySchedule có nhiều ScheduledWorkUnit
+        [JsonIgnore]
         public ICollection<ScheduledWorkUnit>? ScheduledWorkUnits { get; set; }
     }
 }

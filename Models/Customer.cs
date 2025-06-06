@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace DecalXeAPI.Models
 {
@@ -34,8 +35,11 @@ namespace DecalXeAPI.Models
         public Account? Account { get; set; }
 
         // Navigation Properties cho các mối quan hệ một-nhiều
+        [JsonIgnore]
         public ICollection<Order>? Orders { get; set; }
+        [JsonIgnore]
         public ICollection<Feedback>? Feedbacks { get; set; }
+        [JsonIgnore]
         public ICollection<CustomServiceRequest>? CustomServiceRequests { get; set; }
     }
 }
