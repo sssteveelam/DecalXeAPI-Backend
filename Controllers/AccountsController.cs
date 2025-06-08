@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore; // Để dùng .Include() để lấy dữ liệu liên quan
+using Microsoft.EntityFrameworkCore;
 using DecalXeAPI.Data;
 using DecalXeAPI.Models;
+using DecalXeAPI.DTOs; // Để sử dụng AccountDto
+using AutoMapper; // <-- THÊM DÒNG NÀY ĐỂ SỬ DỤNG AUTOMAPPER
 
 namespace DecalXeAPI.Controllers
 {
@@ -10,29 +12,33 @@ namespace DecalXeAPI.Controllers
     public class AccountsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IMapper _mapper; // Khai báo biến IMapper để sử dụng AutoMapper
 
-        public AccountsController(ApplicationDbContext context)
+        // Constructor: Hàm khởi tạo của Controller, ASP.NET Core sẽ tự động "tiêm" (inject) DbContext và IMapper vào đây.
+        public AccountsController(ApplicationDbContext context, IMapper mapper)
         {
             _context = context;
+            _mapper = mapper; // Gán giá trị IMapper được tiêm vào
         }
 
         // API: GET api/Accounts
-        // Lấy tất cả các Account, bao gồm thông tin Role liên quan
+        // Lấy tất cả các Account, trả về dưới dạng AccountDto
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Account>>> GetAccounts()
+        public async Task<ActionResult<IEnumerable<AccountDto>>> GetAccounts()
         {
-            // .Include(a => a.Role) là một phương thức của EF Core
-            // giúp "tải" (load) dữ liệu của bảng Role liên quan đến mỗi Account.
-            // Nếu không có .Include(), chỉ có thông tin Account được trả về, Role sẽ là null.
-            return await _context.Accounts.Include(a => a.Role).ToListAsync();
+            var accounts = await _context.Accounts.Include(a => a.Role).ToListAsync();
+
+            // Ánh xạ TỰ ĐỘNG từ List<Account> sang List<AccountDto> bằng AutoMapper
+            var accountDtos = _mapper.Map<List<AccountDto>>(accounts);
+
+            return Ok(accountDtos);
         }
 
         // API: GET api/Accounts/{id}
-        // Lấy thông tin một Account theo AccountID, bao gồm Role liên quan
+        // Lấy thông tin một Account theo AccountID, trả về dưới dạng AccountDto
         [HttpGet("{id}")]
-        public async Task<ActionResult<Account>> GetAccount(string id)
+        public async Task<ActionResult<AccountDto>> GetAccount(string id)
         {
-            // .Include(a => a.Role) ở đây cũng cần thiết để lấy thông tin Role
             var account = await _context.Accounts.Include(a => a.Role).FirstOrDefaultAsync(a => a.AccountID == id);
 
             if (account == null)
@@ -40,32 +46,39 @@ namespace DecalXeAPI.Controllers
                 return NotFound();
             }
 
-            return account;
+            // Ánh xạ TỰ ĐỘNG từ Account Model sang AccountDto bằng AutoMapper
+            var accountDto = _mapper.Map<AccountDto>(account);
+
+            return Ok(accountDto);
         }
 
         // API: POST api/Accounts
-        // Tạo một Account mới
+        // Tạo một Account mới, nhận vào Account Model, trả về AccountDto sau khi tạo
         [HttpPost]
-        public async Task<ActionResult<Account>> PostAccount(Account account)
+        public async Task<ActionResult<AccountDto>> PostAccount(Account account)
         {
-            // Trước khi thêm Account, kiểm tra xem RoleID có tồn tại không
+            // Kiểm tra xem RoleID có tồn tại không
             if (!string.IsNullOrEmpty(account.RoleID) && !RoleExists(account.RoleID))
             {
-                return BadRequest("RoleID không tồn tại."); // Trả về lỗi nếu RoleID không hợp lệ
+                return BadRequest("RoleID không tồn tại.");
             }
 
             _context.Accounts.Add(account);
             await _context.SaveChangesAsync();
 
-            // Để trả về thông tin Role vừa tạo, cần tải lại Account đó với Include
-            // hoặc lấy Role từ context nếu biết chắc chắn RoleID hợp lệ
-            await _context.Entry(account).Reference(a => a.Role).LoadAsync(); // Tải Role sau khi lưu Account
+            // Tải lại thông tin Role để có RoleName cho DTO
+            // AutoMapper sẽ cần thông tin Role đã được tải để có thể ánh xạ RoleName
+            await _context.Entry(account).Reference(a => a.Role).LoadAsync();
 
-            return CreatedAtAction(nameof(GetAccount), new { id = account.AccountID }, account);
+            // Ánh xạ TỰ ĐỘNG Account Model vừa tạo sang AccountDto để trả về
+            var accountDto = _mapper.Map<AccountDto>(account);
+
+            // Trả về 201 Created và thông tin của AccountDto vừa tạo
+            return CreatedAtAction(nameof(GetAccount), new { id = accountDto.AccountID }, accountDto);
         }
 
         // API: PUT api/Accounts/{id}
-        // Cập nhật thông tin một Account hiện có
+        // Cập nhật thông tin một Account hiện có, vẫn nhận vào Account Model
         [HttpPut("{id}")]
         public async Task<IActionResult> PutAccount(string id, Account account)
         {
@@ -74,7 +87,6 @@ namespace DecalXeAPI.Controllers
                 return BadRequest();
             }
 
-            // Kiểm tra xem RoleID có tồn tại không trước khi cập nhật
             if (!string.IsNullOrEmpty(account.RoleID) && !RoleExists(account.RoleID))
             {
                 return BadRequest("RoleID không tồn tại.");
@@ -102,7 +114,6 @@ namespace DecalXeAPI.Controllers
         }
 
         // API: DELETE api/Accounts/{id}
-        // Xóa một Account
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteAccount(string id)
         {
@@ -118,13 +129,11 @@ namespace DecalXeAPI.Controllers
             return NoContent();
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem Account có tồn tại không
         private bool AccountExists(string id)
         {
             return _context.Accounts.Any(e => e.AccountID == id);
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem Role có tồn tại không (copy từ RolesController)
         private bool RoleExists(string id)
         {
             return _context.Roles.Any(e => e.RoleID == id);

@@ -1,8 +1,16 @@
 using DecalXeAPI.Data; // Thêm dòng này để import namespace Data
 using Npgsql.EntityFrameworkCore.PostgreSQL; // <-- THÊM DÒNG NÀY VÀO ĐÂY
 using Microsoft.EntityFrameworkCore;
+using DecalXeAPI.MappingProfiles;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Đăng ký AutoMapper
+builder.Services.AddAutoMapper(typeof(AccountMappingProfile).Assembly); // <-- SỬA DÒNG NÀY
+ // Dòng này sẽ tự động tìm tất cả các Profile trong cùng Assembly với Program.cs
+// Hoặc cụ thể hơn nếu đệ có nhiều Profile rải rác:
+// builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+// Huynh sẽ dùng cách AddAutoMapper(typeof(Program)) vì nó đơn giản và đủ dùng.
 
 
 // Thêm DbContext vào Services container

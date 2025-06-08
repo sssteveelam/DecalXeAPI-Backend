@@ -124,3 +124,5 @@ C:\Users\WIN10\Desktop\decal-xe-backend\DecalXeAPI\bin\Debug\net9.0\tr\Microsoft
 C:\Users\WIN10\Desktop\decal-xe-backend\DecalXeAPI\bin\Debug\net9.0\zh-Hans\Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.resources.dll
 C:\Users\WIN10\Desktop\decal-xe-backend\DecalXeAPI\bin\Debug\net9.0\zh-Hant\Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.resources.dll
 C:\Users\WIN10\Desktop\decal-xe-backend\DecalXeAPI\obj\Debug\net9.0\DecalXeAPI.sourcelink.json
+C:\Users\WIN10\Desktop\decal-xe-backend\DecalXeAPI\bin\Debug\net9.0\AutoMapper.dll
+C:\Users\WIN10\Desktop\decal-xe-backend\DecalXeAPI\bin\Debug\net9.0\AutoMapper.Extensions.Microsoft.DependencyInjection.dll
