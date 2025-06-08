@@ -20,7 +20,6 @@ namespace DecalXeAPI.Models
         // Dấu '?' sau ICollection<Account> có nghĩa là tập hợp này có thể rỗng (null)
         // trước khi có bất kỳ Account nào được liên kết.
         [JsonIgnore] 
-
         public ICollection<Account>? Accounts { get; set; }
     }
 }

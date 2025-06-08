@@ -2,7 +2,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DecalXeAPI.Data;
 using DecalXeAPI.Models;
-using System; // Để dùng DateTime
+using DecalXeAPI.DTOs;
+using AutoMapper;
+using System.Collections.Generic;
+using System;
+using DecalXeAPI.QueryParams; // <-- THÊM DÒNG NÀY
 
 namespace DecalXeAPI.Controllers
 {
@@ -11,28 +15,96 @@ namespace DecalXeAPI.Controllers
     public class OrdersController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IMapper _mapper;
 
-        public OrdersController(ApplicationDbContext context)
+        public OrdersController(ApplicationDbContext context, IMapper mapper)
         {
             _context = context;
+            _mapper = mapper;
         }
 
         // API: GET api/Orders
-        // Lấy tất cả các Order, bao gồm thông tin Customer, AssignedEmployee và CustomServiceRequest liên quan
+        // Lấy tất cả các Order, có hỗ trợ tìm kiếm, lọc, sắp xếp và phân trang
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Order>>> GetOrders()
+        public async Task<ActionResult<IEnumerable<OrderDto>>> GetOrders([FromQuery] OrderQueryParams queryParams) // <-- THÊM THAM SỐ queryParams
         {
-            return await _context.Orders
+            // Bắt đầu truy vấn
+            var query = _context.Orders
                                 .Include(o => o.Customer)
                                 .Include(o => o.AssignedEmployee)
-                                .Include(o => o.CustomServiceRequest) // Kèm theo thông tin yêu cầu tùy chỉnh nếu có
+                                .Include(o => o.CustomServiceRequest)
+                                .AsQueryable(); // Chuyển sang IQueryable để có thể xây dựng truy vấn động
+
+            // 1. Lọc (Filtering)
+            if (!string.IsNullOrEmpty(queryParams.Status))
+            {
+                query = query.Where(o => o.OrderStatus.ToLower() == queryParams.Status.ToLower());
+            }
+
+            // 2. Tìm kiếm (Searching)
+            if (!string.IsNullOrEmpty(queryParams.SearchTerm))
+            {
+                query = query.Where(o =>
+                    o.Customer.FirstName.ToLower().Contains(queryParams.SearchTerm.ToLower()) ||
+                    o.Customer.LastName.ToLower().Contains(queryParams.SearchTerm.ToLower()) ||
+                    o.AssignedEmployee.FirstName.ToLower().Contains(queryParams.SearchTerm.ToLower()) ||
+                    o.AssignedEmployee.LastName.ToLower().Contains(queryParams.SearchTerm.ToLower()) ||
+                    (o.CustomServiceRequest != null && o.CustomServiceRequest.Description.ToLower().Contains(queryParams.SearchTerm.ToLower()))
+                );
+            }
+
+            // 3. Sắp xếp (Sorting)
+            if (!string.IsNullOrEmpty(queryParams.SortBy))
+            {
+                switch (queryParams.SortBy.ToLower())
+                {
+                    case "orderdate":
+                        query = queryParams.SortOrder.ToLower() == "desc" ? query.OrderByDescending(o => o.OrderDate) : query.OrderBy(o => o.OrderDate);
+                        break;
+                    case "totalamount":
+                        query = queryParams.SortOrder.ToLower() == "desc" ? query.OrderByDescending(o => o.TotalAmount) : query.OrderBy(o => o.TotalAmount);
+                        break;
+                    case "customername":
+                        query = queryParams.SortOrder.ToLower() == "desc" ? query.OrderByDescending(o => o.Customer.LastName).ThenByDescending(o => o.Customer.FirstName) : query.OrderBy(o => o.Customer.LastName).ThenBy(o => o.Customer.FirstName);
+                        break;
+                    case "orderstatus":
+                        query = queryParams.SortOrder.ToLower() == "desc" ? query.OrderByDescending(o => o.OrderStatus) : query.OrderBy(o => o.OrderStatus);
+                        break;
+                    default: // Mặc định sắp xếp theo OrderDate nếu không hợp lệ
+                        query = query.OrderBy(o => o.OrderDate);
+                        break;
+                }
+            }
+            else
+            {
+                // Luôn có một thứ tự sắp xếp mặc định để đảm bảo phân trang hoạt động đúng
+                query = query.OrderBy(o => o.OrderDate);
+            }
+
+
+            // 4. Phân trang (Paging)
+            var totalCount = await query.CountAsync(); // Lấy tổng số bản ghi trước khi phân trang
+            var orders = await query
+                                .Skip((queryParams.PageNumber - 1) * queryParams.PageSize) // Bỏ qua các bản ghi ở trang trước
+                                .Take(queryParams.PageSize) // Lấy số bản ghi cho trang hiện tại
                                 .ToListAsync();
+
+            // Ánh xạ sang DTO
+            var orderDtos = _mapper.Map<List<OrderDto>>(orders);
+
+            // Thêm thông tin phân trang vào Header của Response (Optional nhưng rất nên làm)
+            Response.Headers.Add("X-Total-Count", totalCount.ToString());
+            Response.Headers.Add("X-Page-Number", queryParams.PageNumber.ToString());
+            Response.Headers.Add("X-Page-Size", queryParams.PageSize.ToString());
+            Response.Headers.Add("X-Total-Pages", ((int)Math.Ceiling((double)totalCount / queryParams.PageSize)).ToString());
+
+
+            return Ok(orderDtos);
         }
 
-        // API: GET api/Orders/{id}
-        // Lấy thông tin một Order theo OrderID, bao gồm các thông tin liên quan
+        // Các API GET by ID, POST, PUT, DELETE giữ nguyên
         [HttpGet("{id}")]
-        public async Task<ActionResult<Order>> GetOrder(string id)
+        public async Task<ActionResult<OrderDto>> GetOrder(string id)
         {
             var order = await _context.Orders
                                     .Include(o => o.Customer)
@@ -45,15 +117,13 @@ namespace DecalXeAPI.Controllers
                 return NotFound();
             }
 
-            return order;
+            var orderDto = _mapper.Map<OrderDto>(order);
+            return Ok(orderDto);
         }
 
-        // API: POST api/Orders
-        // Tạo một Order mới
         [HttpPost]
-        public async Task<ActionResult<Order>> PostOrder(Order order)
+        public async Task<ActionResult<OrderDto>> PostOrder(Order order)
         {
-            // Kiểm tra xem CustomerID và AssignedEmployeeID (nếu có) có tồn tại không
             if (!string.IsNullOrEmpty(order.CustomerID) && !CustomerExists(order.CustomerID))
             {
                 return BadRequest("CustomerID không tồn tại.");
@@ -62,15 +132,13 @@ namespace DecalXeAPI.Controllers
             {
                 return BadRequest("AssignedEmployeeID không tồn tại.");
             }
-            // Kiểm tra xem CustomRequestID có tồn tại không nếu được cung cấp
-            // và đảm bảo nó chưa được gán cho Order nào khác (nếu là mối quan hệ 1-1)
+
             if (!string.IsNullOrEmpty(order.CustomServiceRequest?.CustomRequestID) && !CustomServiceRequestExists(order.CustomServiceRequest.CustomRequestID))
             {
                 return BadRequest("CustomServiceRequestID không tồn tại.");
             }
-             if (!string.IsNullOrEmpty(order.CustomServiceRequest?.CustomRequestID))
+            if (!string.IsNullOrEmpty(order.CustomServiceRequest?.CustomRequestID))
             {
-                // Kiểm tra xem CustomServiceRequest này đã có Order liên kết chưa
                 var existingCsr = await _context.CustomServiceRequests
                                             .Where(csr => csr.CustomRequestID == order.CustomServiceRequest.CustomRequestID && csr.OrderID != null)
                                             .FirstOrDefaultAsync();
@@ -81,31 +149,27 @@ namespace DecalXeAPI.Controllers
             }
 
             _context.Orders.Add(order);
-            await _context.SaveChangesAsync(); // Lưu Order trước để có OrderID
+            await _context.SaveChangesAsync();
 
-            // Cập nhật OrderID cho CustomServiceRequest nếu có
             if (!string.IsNullOrEmpty(order.CustomServiceRequest?.CustomRequestID))
             {
                 var csr = await _context.CustomServiceRequests.FindAsync(order.CustomServiceRequest.CustomRequestID);
                 if (csr != null)
                 {
-                    csr.OrderID = order.OrderID; // Gán OrderID cho CustomServiceRequest
+                    csr.OrderID = order.OrderID;
                     _context.CustomServiceRequests.Update(csr);
                     await _context.SaveChangesAsync();
                 }
             }
 
-            // Tải lại thông tin liên quan để trả về đầy đủ
             await _context.Entry(order).Reference(o => o.Customer).LoadAsync();
             await _context.Entry(order).Reference(o => o.AssignedEmployee).LoadAsync();
             await _context.Entry(order).Reference(o => o.CustomServiceRequest).LoadAsync();
 
-            return CreatedAtAction(nameof(GetOrder), new { id = order.OrderID }, order);
+            var orderDto = _mapper.Map<OrderDto>(order);
+            return CreatedAtAction(nameof(GetOrder), new { id = orderDto.OrderID }, orderDto);
         }
 
-
-        // API: PUT api/Orders/{id}
-        // Cập nhật thông tin một Order hiện có
         [HttpPut("{id}")]
         public async Task<IActionResult> PutOrder(string id, Order order)
         {
@@ -114,7 +178,6 @@ namespace DecalXeAPI.Controllers
                 return BadRequest();
             }
 
-            // Kiểm tra FKs trước khi cập nhật
             if (!string.IsNullOrEmpty(order.CustomerID) && !CustomerExists(order.CustomerID))
             {
                 return BadRequest("CustomerID không tồn tại.");
@@ -123,13 +186,10 @@ namespace DecalXeAPI.Controllers
             {
                 return BadRequest("AssignedEmployeeID không tồn tại.");
             }
-             if (!string.IsNullOrEmpty(order.CustomServiceRequest?.CustomRequestID) && !CustomServiceRequestExists(order.CustomServiceRequest.CustomRequestID))
+            if (!string.IsNullOrEmpty(order.CustomServiceRequest?.CustomRequestID) && !CustomServiceRequestExists(order.CustomServiceRequest.CustomRequestID))
             {
                 return BadRequest("CustomServiceRequestID không tồn tại.");
             }
-            // Logic kiểm tra CSR đã được liên kết hay chưa, cần phức tạp hơn cho PUT
-            // Tạm thời bỏ qua kiểm tra trùng lặp CSR cho PUT để tránh phức tạp ban đầu
-            // Nếu cần, có thể kiểm tra xem CSR đó có đang được gán cho Order khác không (trừ chính Order này)
 
 
             _context.Entry(order).State = EntityState.Modified;
@@ -138,21 +198,16 @@ namespace DecalXeAPI.Controllers
             {
                 await _context.SaveChangesAsync();
 
-                // Cập nhật OrderID cho CustomServiceRequest nếu có sự thay đổi
-                // Điều này cần được xử lý cẩn thận nếu muốn gán lại CSR cho Order khác
-                // hoặc bỏ gán. Tạm thời, logic đơn giản là nếu CSR được cung cấp, gán OrderID.
                 if (!string.IsNullOrEmpty(order.CustomServiceRequest?.CustomRequestID))
                 {
                     var csr = await _context.CustomServiceRequests.FindAsync(order.CustomServiceRequest.CustomRequestID);
-                    if (csr != null && csr.OrderID != order.OrderID) // Nếu CSR này chưa gán hoặc gán sai
+                    if (csr != null && csr.OrderID != order.OrderID)
                     {
                         csr.OrderID = order.OrderID;
                         _context.CustomServiceRequests.Update(csr);
                         await _context.SaveChangesAsync();
                     }
                 }
-                // Xử lý trường hợp nếu trước đó có CSR, giờ muốn hủy liên kết
-                // (Cần logic phức tạp hơn, có thể dùng DTO để nhận biết sự thay đổi)
 
             }
             catch (DbUpdateConcurrencyException)
@@ -170,8 +225,6 @@ namespace DecalXeAPI.Controllers
             return NoContent();
         }
 
-        // API: DELETE api/Orders/{id}
-        // Xóa một Order
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteOrder(string id)
         {
@@ -181,11 +234,10 @@ namespace DecalXeAPI.Controllers
                 return NotFound();
             }
 
-            // Nếu Order này có liên kết với CustomServiceRequest, cần ngắt liên kết trước khi xóa Order
             var csr = await _context.CustomServiceRequests.FirstOrDefaultAsync(c => c.OrderID == id);
             if (csr != null)
             {
-                csr.OrderID = null; // Ngắt liên kết
+                csr.OrderID = null;
                 _context.CustomServiceRequests.Update(csr);
             }
 
@@ -195,25 +247,21 @@ namespace DecalXeAPI.Controllers
             return NoContent();
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem Order có tồn tại không
         private bool OrderExists(string id)
         {
             return _context.Orders.Any(e => e.OrderID == id);
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem Customer có tồn tại không (copy từ CustomersController)
         private bool CustomerExists(string id)
         {
             return _context.Customers.Any(e => e.CustomerID == id);
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem Employee có tồn tại không (copy từ EmployeesController)
         private bool EmployeeExists(string id)
         {
             return _context.Employees.Any(e => e.EmployeeID == id);
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem CustomServiceRequest có tồn tại không
         private bool CustomServiceRequestExists(string id)
         {
             return _context.CustomServiceRequests.Any(e => e.CustomRequestID == id);

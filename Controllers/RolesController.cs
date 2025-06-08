@@ -1,123 +1,115 @@
-using Microsoft.AspNetCore.Mvc; // Quan trọng để tạo API Controller
-using Microsoft.EntityFrameworkCore; // Để dùng các phương thức của EF Core như .ToListAsync(), .FindAsync(), v.v.
-using DecalXeAPI.Data; // Để truy cập ApplicationDbContext
-using DecalXeAPI.Models; // Để truy cập các Models (Role)
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using DecalXeAPI.Data;
+using DecalXeAPI.Models;
+using DecalXeAPI.DTOs; // Để sử dụng RoleDto (nếu có, hoặc sử dụng Model trực tiếp nếu DTO không thêm gì mới)
+using AutoMapper; // Để sử dụng AutoMapper
+using System.Collections.Generic; // Để sử dụng IEnumerable
 
 namespace DecalXeAPI.Controllers
 {
-    [Route("api/[controller]")] // Định nghĩa Route (đường dẫn) cho Controller này.
-                               // [controller] sẽ tự động thay bằng tên Controller (trừ hậu tố "Controller"), tức là "Roles".
-                               // Vậy API sẽ có dạng: /api/Roles
-    [ApiController] // Thuộc tính này đánh dấu lớp là một API Controller, cung cấp các hành vi mặc định cho API (ví dụ: tự động trả về lỗi 400 nếu model không hợp lệ)
-    public class RolesController : ControllerBase // Kế thừa từ ControllerBase (dành cho API không có View)
+    [Route("api/[controller]")]
+    [ApiController]
+    public class RolesController : ControllerBase
     {
-        private readonly ApplicationDbContext _context; // Khai báo một biến để lưu trữ DbContext
+        private readonly ApplicationDbContext _context;
+        private readonly IMapper _mapper; // Khai báo biến IMapper
 
-        // Constructor: Hàm khởi tạo của Controller.
-        // ASP.NET Core sẽ tự động "tiêm" (inject) ApplicationDbContext vào đây thông qua Dependency Injection.
-        public RolesController(ApplicationDbContext context)
+        public RolesController(ApplicationDbContext context, IMapper mapper) // Tiêm IMapper
         {
             _context = context;
+            _mapper = mapper;
         }
 
         // API: GET api/Roles
-        // Lấy tất cả các Role có trong database
-        [HttpGet] // Thuộc tính [HttpGet] đánh dấu đây là một HTTP GET request
-        public async Task<ActionResult<IEnumerable<Role>>> GetRoles()
+        // Lấy tất cả các Role, trả về dưới dạng RoleDto (hoặc Role Model nếu RoleDto không có sự khác biệt)
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<RoleDto>>> GetRoles() // Kiểu trả về là RoleDto
         {
-            // Lấy tất cả Role từ bảng Roles trong database
-            // .ToListAsync() là một phương thức của EF Core, chuyển đổi kết quả query thành danh sách bất đồng bộ.
-            return await _context.Roles.ToListAsync();
+            var roles = await _context.Roles.ToListAsync();
+            // Sử dụng AutoMapper để ánh xạ từ List<Role> sang List<RoleDto>
+            var roleDtos = _mapper.Map<List<RoleDto>>(roles);
+            return Ok(roleDtos);
         }
 
         // API: GET api/Roles/{id}
-        // Lấy thông tin một Role theo RoleID
-        [HttpGet("{id}")] // [HttpGet("{id}")] nghĩa là đường dẫn sẽ có thêm 1 tham số {id}.
-                          // Ví dụ: /api/Roles/ADMIN
-        public async Task<ActionResult<Role>> GetRole(string id)
+        // Lấy thông tin một Role theo RoleID, trả về dưới dạng RoleDto
+        [HttpGet("{id}")]
+        public async Task<ActionResult<RoleDto>> GetRole(string id) // Kiểu trả về là RoleDto
         {
-            // Tìm Role theo RoleID. .FindAsync() tìm kiếm theo khóa chính.
             var role = await _context.Roles.FindAsync(id);
 
-            if (role == null) // Nếu không tìm thấy Role nào có ID này
+            if (role == null)
             {
-                return NotFound(); // Trả về lỗi 404 Not Found
+                return NotFound();
             }
 
-            return role; // Trả về Role tìm được
+            // Sử dụng AutoMapper để ánh xạ từ Role Model sang RoleDto
+            var roleDto = _mapper.Map<RoleDto>(role);
+            return Ok(roleDto);
         }
 
         // API: POST api/Roles
-        // Tạo một Role mới
-        // [FromBody] Role role nghĩa là dữ liệu của Role sẽ được gửi trong phần body của HTTP request (dưới dạng JSON)
+        // Tạo một Role mới, nhận vào Role Model, trả về RoleDto sau khi tạo
         [HttpPost]
-        public async Task<ActionResult<Role>> PostRole(Role role)
+        public async Task<ActionResult<RoleDto>> PostRole(Role role) // Kiểu trả về là RoleDto
         {
-            // Thêm Role mới vào DbSet Roles (chưa lưu vào DB thật)
             _context.Roles.Add(role);
-            // Lưu các thay đổi vào database
             await _context.SaveChangesAsync();
 
-            // Trả về kết quả 201 Created (nghĩa là đã tạo thành công),
-            // kèm theo thông tin của Role vừa tạo và đường dẫn để lấy Role đó.
-            return CreatedAtAction(nameof(GetRole), new { id = role.RoleID }, role);
+            // Không cần LoadAsync() vì RoleDto không có Navigation Property cần tải
+
+            // Ánh xạ Role Model vừa tạo sang RoleDto để trả về
+            var roleDto = _mapper.Map<RoleDto>(role);
+            return CreatedAtAction(nameof(GetRole), new { id = roleDto.RoleID }, roleDto);
         }
 
         // API: PUT api/Roles/{id}
-        // Cập nhật thông tin một Role hiện có
         [HttpPut("{id}")]
         public async Task<IActionResult> PutRole(string id, Role role)
         {
-            // Kiểm tra xem ID trong đường dẫn có khớp với RoleID trong body request không
             if (id != role.RoleID)
             {
-                return BadRequest(); // Trả về lỗi 400 Bad Request nếu không khớp
+                return BadRequest();
             }
 
-            // Đánh dấu Entity là đã được Modified (thay đổi)
             _context.Entry(role).State = EntityState.Modified;
 
             try
             {
-                // Lưu các thay đổi vào database
                 await _context.SaveChangesAsync();
             }
-            catch (DbUpdateConcurrencyException) // Xử lý lỗi nếu có xung đột cập nhật (ví dụ: Role không tồn tại)
+            catch (DbUpdateConcurrencyException)
             {
-                if (!RoleExists(id)) // Kiểm tra xem Role có tồn tại không
+                if (!RoleExists(id))
                 {
-                    return NotFound(); // Nếu không tồn tại, trả về 404 Not Found
+                    return NotFound();
                 }
                 else
                 {
-                    throw; // Nếu là lỗi khác, ném lại lỗi
+                    throw;
                 }
             }
 
-            return NoContent(); // Trả về 204 No Content (nghĩa là cập nhật thành công nhưng không có nội dung trả về)
+            return NoContent();
         }
 
         // API: DELETE api/Roles/{id}
-        // Xóa một Role
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteRole(string id)
         {
-            // Tìm Role cần xóa
             var role = await _context.Roles.FindAsync(id);
-            if (role == null) // Nếu không tìm thấy
+            if (role == null)
             {
-                return NotFound(); // Trả về 404 Not Found
+                return NotFound();
             }
 
-            // Xóa Role khỏi DbSet Roles
             _context.Roles.Remove(role);
-            // Lưu thay đổi vào database
             await _context.SaveChangesAsync();
 
-            return NoContent(); // Trả về 204 No Content
+            return NoContent();
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem Role có tồn tại không
         private bool RoleExists(string id)
         {
             return _context.Roles.Any(e => e.RoleID == id);

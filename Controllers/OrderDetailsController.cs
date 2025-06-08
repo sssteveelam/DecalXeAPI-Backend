@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DecalXeAPI.Data;
 using DecalXeAPI.Models;
+using DecalXeAPI.DTOs; // Để sử dụng OrderDetailDto
+using AutoMapper; // Để sử dụng AutoMapper
+using System.Collections.Generic; // Để sử dụng IEnumerable
 
 namespace DecalXeAPI.Controllers
 {
@@ -10,45 +13,52 @@ namespace DecalXeAPI.Controllers
     public class OrderDetailsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IMapper _mapper; // Khai báo biến IMapper
 
-        public OrderDetailsController(ApplicationDbContext context)
+        public OrderDetailsController(ApplicationDbContext context, IMapper mapper) // Tiêm IMapper
         {
             _context = context;
+            _mapper = mapper;
         }
 
         // API: GET api/OrderDetails
-        // Lấy tất cả các OrderDetail, bao gồm thông tin Order và DecalService liên quan
+        // Lấy tất cả các OrderDetail, bao gồm thông tin Order và DecalService liên quan, trả về DTO
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<OrderDetail>>> GetOrderDetails()
+        public async Task<ActionResult<IEnumerable<OrderDetailDto>>> GetOrderDetails() // Kiểu trả về là OrderDetailDto
         {
-            return await _context.OrderDetails
-                                .Include(od => od.Order)
-                                .Include(od => od.DecalService)
-                                .ToListAsync();
+            var orderDetails = await _context.OrderDetails
+                                            .Include(od => od.Order)
+                                            .Include(od => od.DecalService)
+                                            .ToListAsync();
+            // Sử dụng AutoMapper để ánh xạ từ List<OrderDetail> sang List<OrderDetailDto>
+            var orderDetailDtos = _mapper.Map<List<OrderDetailDto>>(orderDetails);
+            return Ok(orderDetailDtos);
         }
 
         // API: GET api/OrderDetails/{id}
-        // Lấy thông tin một OrderDetail theo OrderDetailID, bao gồm các thông tin liên quan
+        // Lấy thông tin một OrderDetail theo OrderDetailID, bao gồm các thông tin liên quan, trả về DTO
         [HttpGet("{id}")]
-        public async Task<ActionResult<OrderDetail>> GetOrderDetail(string id)
+        public async Task<ActionResult<OrderDetailDto>> GetOrderDetail(string id) // Kiểu trả về là OrderDetailDto
         {
             var orderDetail = await _context.OrderDetails
-                                            .Include(od => od.Order)
-                                            .Include(od => od.DecalService)
-                                            .FirstOrDefaultAsync(od => od.OrderDetailID == id);
+                                                .Include(od => od.Order)
+                                                .Include(od => od.DecalService)
+                                                .FirstOrDefaultAsync(od => od.OrderDetailID == id);
 
             if (orderDetail == null)
             {
                 return NotFound();
             }
 
-            return orderDetail;
+            // Sử dụng AutoMapper để ánh xạ từ OrderDetail Model sang OrderDetailDto
+            var orderDetailDto = _mapper.Map<OrderDetailDto>(orderDetail);
+            return Ok(orderDetailDto);
         }
 
         // API: POST api/OrderDetails
-        // Tạo một OrderDetail mới
+        // Tạo một OrderDetail mới, nhận vào OrderDetail Model, trả về OrderDetailDto sau khi tạo
         [HttpPost]
-        public async Task<ActionResult<OrderDetail>> PostOrderDetail(OrderDetail orderDetail)
+        public async Task<ActionResult<OrderDetailDto>> PostOrderDetail(OrderDetail orderDetail) // Kiểu trả về là OrderDetailDto
         {
             // Kiểm tra xem OrderID và ServiceID có tồn tại không
             if (!string.IsNullOrEmpty(orderDetail.OrderID) && !OrderExists(orderDetail.OrderID))
@@ -63,15 +73,16 @@ namespace DecalXeAPI.Controllers
             _context.OrderDetails.Add(orderDetail);
             await _context.SaveChangesAsync();
 
-            // Tải lại thông tin liên quan để trả về đầy đủ
+            // Tải lại thông tin liên quan để AutoMapper có thể ánh xạ đầy đủ
             await _context.Entry(orderDetail).Reference(od => od.Order).LoadAsync();
             await _context.Entry(orderDetail).Reference(od => od.DecalService).LoadAsync();
 
-            return CreatedAtAction(nameof(GetOrderDetail), new { id = orderDetail.OrderDetailID }, orderDetail);
+            // Ánh xạ OrderDetail Model vừa tạo sang OrderDetailDto để trả về
+            var orderDetailDto = _mapper.Map<OrderDetailDto>(orderDetail);
+            return CreatedAtAction(nameof(GetOrderDetail), new { id = orderDetailDto.OrderDetailID }, orderDetailDto);
         }
 
         // API: PUT api/OrderDetails/{id}
-        // Cập nhật thông tin một OrderDetail hiện có
         [HttpPut("{id}")]
         public async Task<IActionResult> PutOrderDetail(string id, OrderDetail orderDetail)
         {
@@ -80,7 +91,6 @@ namespace DecalXeAPI.Controllers
                 return BadRequest();
             }
 
-            // Kiểm tra FKs trước khi cập nhật
             if (!string.IsNullOrEmpty(orderDetail.OrderID) && !OrderExists(orderDetail.OrderID))
             {
                 return BadRequest("OrderID không tồn tại.");
@@ -112,7 +122,6 @@ namespace DecalXeAPI.Controllers
         }
 
         // API: DELETE api/OrderDetails/{id}
-        // Xóa một OrderDetail
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteOrderDetail(string id)
         {
@@ -128,19 +137,16 @@ namespace DecalXeAPI.Controllers
             return NoContent();
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem OrderDetail có tồn tại không
         private bool OrderDetailExists(string id)
         {
             return _context.OrderDetails.Any(e => e.OrderDetailID == id);
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem Order có tồn tại không (copy từ OrdersController)
         private bool OrderExists(string id)
         {
             return _context.Orders.Any(e => e.OrderID == id);
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem DecalService có tồn tại không (copy từ DecalServicesController)
         private bool DecalServiceExists(string id)
         {
             return _context.DecalServices.Any(e => e.ServiceID == id);

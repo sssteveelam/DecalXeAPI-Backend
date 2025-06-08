@@ -2,7 +2,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DecalXeAPI.Data;
 using DecalXeAPI.Models;
-using System;
+using DecalXeAPI.DTOs; // Để sử dụng FeedbackDto
+using AutoMapper; // Để sử dụng AutoMapper
+using System.Collections.Generic; // Để sử dụng IEnumerable
+using System; // Để sử dụng DateTime
 
 namespace DecalXeAPI.Controllers
 {
@@ -11,27 +14,32 @@ namespace DecalXeAPI.Controllers
     public class FeedbacksController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IMapper _mapper; // Khai báo biến IMapper
 
-        public FeedbacksController(ApplicationDbContext context)
+        public FeedbacksController(ApplicationDbContext context, IMapper mapper) // Tiêm IMapper
         {
             _context = context;
+            _mapper = mapper;
         }
 
         // API: GET api/Feedbacks
-        // Lấy tất cả các Feedback, bao gồm thông tin Order và Customer liên quan
+        // Lấy tất cả các Feedback, bao gồm thông tin Order và Customer liên quan, trả về DTO
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Feedback>>> GetFeedbacks()
+        public async Task<ActionResult<IEnumerable<FeedbackDto>>> GetFeedbacks() // Kiểu trả về là FeedbackDto
         {
-            return await _context.Feedbacks
-                                .Include(f => f.Order)
-                                .Include(f => f.Customer)
-                                .ToListAsync();
+            var feedbacks = await _context.Feedbacks
+                                        .Include(f => f.Order) // Tải thông tin Order
+                                        .Include(f => f.Customer) // Tải thông tin Customer
+                                        .ToListAsync();
+            // Sử dụng AutoMapper để ánh xạ từ List<Feedback> sang List<FeedbackDto>
+            var feedbackDtos = _mapper.Map<List<FeedbackDto>>(feedbacks);
+            return Ok(feedbackDtos);
         }
 
         // API: GET api/Feedbacks/{id}
-        // Lấy thông tin một Feedback theo FeedbackID, bao gồm các thông tin liên quan
+        // Lấy thông tin một Feedback theo FeedbackID, bao gồm các thông tin liên quan, trả về DTO
         [HttpGet("{id}")]
-        public async Task<ActionResult<Feedback>> GetFeedback(string id)
+        public async Task<ActionResult<FeedbackDto>> GetFeedback(string id) // Kiểu trả về là FeedbackDto
         {
             var feedback = await _context.Feedbacks
                                         .Include(f => f.Order)
@@ -43,13 +51,15 @@ namespace DecalXeAPI.Controllers
                 return NotFound();
             }
 
-            return feedback;
+            // Sử dụng AutoMapper để ánh xạ từ Feedback Model sang FeedbackDto
+            var feedbackDto = _mapper.Map<FeedbackDto>(feedback);
+            return Ok(feedbackDto);
         }
 
         // API: POST api/Feedbacks
-        // Tạo một Feedback mới
+        // Tạo một Feedback mới, nhận vào Feedback Model, trả về FeedbackDto sau khi tạo
         [HttpPost]
-        public async Task<ActionResult<Feedback>> PostFeedback(Feedback feedback)
+        public async Task<ActionResult<FeedbackDto>> PostFeedback(Feedback feedback) // Kiểu trả về là FeedbackDto
         {
             // Kiểm tra FKs có tồn tại không
             if (!string.IsNullOrEmpty(feedback.OrderID) && !OrderExists(feedback.OrderID))
@@ -64,15 +74,16 @@ namespace DecalXeAPI.Controllers
             _context.Feedbacks.Add(feedback);
             await _context.SaveChangesAsync();
 
-            // Tải lại thông tin liên quan để trả về đầy đủ
+            // Tải lại thông tin liên quan để AutoMapper có thể ánh xạ đầy đủ
             await _context.Entry(feedback).Reference(f => f.Order).LoadAsync();
             await _context.Entry(feedback).Reference(f => f.Customer).LoadAsync();
 
-            return CreatedAtAction(nameof(GetFeedback), new { id = feedback.FeedbackID }, feedback);
+            // Ánh xạ Feedback Model vừa tạo sang FeedbackDto để trả về
+            var feedbackDto = _mapper.Map<FeedbackDto>(feedback);
+            return CreatedAtAction(nameof(GetFeedback), new { id = feedbackDto.FeedbackID }, feedbackDto);
         }
 
         // API: PUT api/Feedbacks/{id}
-        // Cập nhật thông tin một Feedback hiện có
         [HttpPut("{id}")]
         public async Task<IActionResult> PutFeedback(string id, Feedback feedback)
         {
@@ -81,7 +92,6 @@ namespace DecalXeAPI.Controllers
                 return BadRequest();
             }
 
-            // Kiểm tra FKs trước khi cập nhật
             if (!string.IsNullOrEmpty(feedback.OrderID) && !OrderExists(feedback.OrderID))
             {
                 return BadRequest("OrderID không tồn tại.");
@@ -113,7 +123,6 @@ namespace DecalXeAPI.Controllers
         }
 
         // API: DELETE api/Feedbacks/{id}
-        // Xóa một Feedback
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteFeedback(string id)
         {
@@ -129,19 +138,16 @@ namespace DecalXeAPI.Controllers
             return NoContent();
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem Feedback có tồn tại không
         private bool FeedbackExists(string id)
         {
             return _context.Feedbacks.Any(e => e.FeedbackID == id);
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem Order có tồn tại không (copy từ OrdersController)
         private bool OrderExists(string id)
         {
             return _context.Orders.Any(e => e.OrderID == id);
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem Customer có tồn tại không (copy từ CustomersController)
         private bool CustomerExists(string id)
         {
             return _context.Customers.Any(e => e.CustomerID == id);

@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DecalXeAPI.Data;
 using DecalXeAPI.Models;
+using DecalXeAPI.DTOs; // Để sử dụng ServiceDecalTemplateDto
+using AutoMapper; // Để sử dụng AutoMapper
+using System.Collections.Generic; // Để sử dụng IEnumerable
 
 namespace DecalXeAPI.Controllers
 {
@@ -10,46 +13,52 @@ namespace DecalXeAPI.Controllers
     public class ServiceDecalTemplatesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IMapper _mapper; // Khai báo biến IMapper
 
-        public ServiceDecalTemplatesController(ApplicationDbContext context)
+        public ServiceDecalTemplatesController(ApplicationDbContext context, IMapper mapper) // Tiêm IMapper
         {
             _context = context;
+            _mapper = mapper;
         }
 
         // API: GET api/ServiceDecalTemplates
-        // Lấy tất cả các ServiceDecalTemplate, bao gồm thông tin DecalService và DecalTemplate liên quan
+        // Lấy tất cả các ServiceDecalTemplate, bao gồm thông tin DecalService và DecalTemplate liên quan, trả về DTO
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<ServiceDecalTemplate>>> GetServiceDecalTemplates()
+        public async Task<ActionResult<IEnumerable<ServiceDecalTemplateDto>>> GetServiceDecalTemplates() // Kiểu trả về là ServiceDecalTemplateDto
         {
-            // .Include() để tải dữ liệu của cả DecalService và DecalTemplate liên quan
-            return await _context.ServiceDecalTemplates
-                                .Include(sdt => sdt.DecalService)
-                                .Include(sdt => sdt.DecalTemplate)
-                                .ToListAsync();
+            var serviceDecalTemplates = await _context.ServiceDecalTemplates
+                                                        .Include(sdt => sdt.DecalService)
+                                                        .Include(sdt => sdt.DecalTemplate)
+                                                        .ToListAsync();
+            // Sử dụng AutoMapper để ánh xạ từ List<ServiceDecalTemplate> sang List<ServiceDecalTemplateDto>
+            var serviceDecalTemplateDtos = _mapper.Map<List<ServiceDecalTemplateDto>>(serviceDecalTemplates);
+            return Ok(serviceDecalTemplateDtos);
         }
 
         // API: GET api/ServiceDecalTemplates/{id}
-        // Lấy thông tin một ServiceDecalTemplate theo ServiceDecalTemplateID, bao gồm các thông tin liên quan
+        // Lấy thông tin một ServiceDecalTemplate theo ServiceDecalTemplateID, bao gồm các thông tin liên quan, trả về DTO
         [HttpGet("{id}")]
-        public async Task<ActionResult<ServiceDecalTemplate>> GetServiceDecalTemplate(string id)
+        public async Task<ActionResult<ServiceDecalTemplateDto>> GetServiceDecalTemplate(string id) // Kiểu trả về là ServiceDecalTemplateDto
         {
             var serviceDecalTemplate = await _context.ServiceDecalTemplates
-                                                        .Include(sdt => sdt.DecalService)
-                                                        .Include(sdt => sdt.DecalTemplate)
-                                                        .FirstOrDefaultAsync(sdt => sdt.ServiceDecalTemplateID == id);
+                                                            .Include(sdt => sdt.DecalService)
+                                                            .Include(sdt => sdt.DecalTemplate)
+                                                            .FirstOrDefaultAsync(sdt => sdt.ServiceDecalTemplateID == id);
 
             if (serviceDecalTemplate == null)
             {
                 return NotFound();
             }
 
-            return serviceDecalTemplate;
+            // Sử dụng AutoMapper để ánh xạ từ ServiceDecalTemplate Model sang ServiceDecalTemplateDto
+            var serviceDecalTemplateDto = _mapper.Map<ServiceDecalTemplateDto>(serviceDecalTemplate);
+            return Ok(serviceDecalTemplateDto);
         }
 
         // API: POST api/ServiceDecalTemplates
-        // Tạo một ServiceDecalTemplate mới
+        // Tạo một ServiceDecalTemplate mới, nhận vào ServiceDecalTemplate Model, trả về ServiceDecalTemplateDto sau khi tạo
         [HttpPost]
-        public async Task<ActionResult<ServiceDecalTemplate>> PostServiceDecalTemplate(ServiceDecalTemplate serviceDecalTemplate)
+        public async Task<ActionResult<ServiceDecalTemplateDto>> PostServiceDecalTemplate(ServiceDecalTemplate serviceDecalTemplate) // Kiểu trả về là ServiceDecalTemplateDto
         {
             // Kiểm tra xem ServiceID và TemplateID có tồn tại không
             if (!string.IsNullOrEmpty(serviceDecalTemplate.ServiceID) && !DecalServiceExists(serviceDecalTemplate.ServiceID))
@@ -64,15 +73,16 @@ namespace DecalXeAPI.Controllers
             _context.ServiceDecalTemplates.Add(serviceDecalTemplate);
             await _context.SaveChangesAsync();
 
-            // Tải lại thông tin liên quan để trả về đầy đủ
+            // Tải lại thông tin liên quan để AutoMapper có thể ánh xạ đầy đủ
             await _context.Entry(serviceDecalTemplate).Reference(sdt => sdt.DecalService).LoadAsync();
             await _context.Entry(serviceDecalTemplate).Reference(sdt => sdt.DecalTemplate).LoadAsync();
 
-            return CreatedAtAction(nameof(GetServiceDecalTemplate), new { id = serviceDecalTemplate.ServiceDecalTemplateID }, serviceDecalTemplate);
+            // Ánh xạ ServiceDecalTemplate Model vừa tạo sang ServiceDecalTemplateDto để trả về
+            var serviceDecalTemplateDto = _mapper.Map<ServiceDecalTemplateDto>(serviceDecalTemplate);
+            return CreatedAtAction(nameof(GetServiceDecalTemplate), new { id = serviceDecalTemplateDto.ServiceDecalTemplateID }, serviceDecalTemplateDto);
         }
 
         // API: PUT api/ServiceDecalTemplates/{id}
-        // Cập nhật thông tin một ServiceDecalTemplate hiện có
         [HttpPut("{id}")]
         public async Task<IActionResult> PutServiceDecalTemplate(string id, ServiceDecalTemplate serviceDecalTemplate)
         {
@@ -81,7 +91,6 @@ namespace DecalXeAPI.Controllers
                 return BadRequest();
             }
 
-            // Kiểm tra xem ServiceID và TemplateID có tồn tại không trước khi cập nhật
             if (!string.IsNullOrEmpty(serviceDecalTemplate.ServiceID) && !DecalServiceExists(serviceDecalTemplate.ServiceID))
             {
                 return BadRequest("ServiceID không tồn tại.");
@@ -113,7 +122,6 @@ namespace DecalXeAPI.Controllers
         }
 
         // API: DELETE api/ServiceDecalTemplates/{id}
-        // Xóa một ServiceDecalTemplate
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteServiceDecalTemplate(string id)
         {
@@ -129,19 +137,16 @@ namespace DecalXeAPI.Controllers
             return NoContent();
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem ServiceDecalTemplate có tồn tại không
         private bool ServiceDecalTemplateExists(string id)
         {
             return _context.ServiceDecalTemplates.Any(e => e.ServiceDecalTemplateID == id);
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem DecalService có tồn tại không (copy từ DecalServicesController)
         private bool DecalServiceExists(string id)
         {
             return _context.DecalServices.Any(e => e.ServiceID == id);
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem DecalTemplate có tồn tại không (copy từ DecalTemplatesController)
         private bool DecalTemplateExists(string id)
         {
             return _context.DecalTemplates.Any(e => e.TemplateID == id);

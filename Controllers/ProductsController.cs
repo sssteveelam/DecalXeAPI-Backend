@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DecalXeAPI.Data;
 using DecalXeAPI.Models;
+using DecalXeAPI.DTOs; // Để sử dụng ProductDto
+using AutoMapper; // Để sử dụng AutoMapper
+using System.Collections.Generic; // Để sử dụng IEnumerable
 
 namespace DecalXeAPI.Controllers
 {
@@ -10,97 +13,104 @@ namespace DecalXeAPI.Controllers
     public class ProductsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IMapper _mapper; // Khai báo biến IMapper
 
-        public ProductsController(ApplicationDbContext context)
+        public ProductsController(ApplicationDbContext context, IMapper mapper) // Tiêm IMapper
         {
             _context = context;
+            _mapper = mapper;
         }
 
         // API: GET api/Products
-        // Lấy tất cả các Product có trong database
+        // Lấy tất cả các Product, trả về dưới dạng ProductDto
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
+        public async Task<ActionResult<IEnumerable<ProductDto>>> GetProducts() // Kiểu trả về là ProductDto
         {
-            return await _context.Products.ToListAsync();
+            var products = await _context.Products.ToListAsync();
+            // Sử dụng AutoMapper để ánh xạ từ List<Product> sang List<ProductDto>
+            var productDtos = _mapper.Map<List<ProductDto>>(products);
+            return Ok(productDtos);
         }
 
         // API: GET api/Products/{id}
-        // Lấy thông tin một Product theo ProductID
+        // Lấy thông tin một Product theo ProductID, trả về dưới dạng ProductDto
         [HttpGet("{id}")]
-        public async Task<ActionResult<Product>> GetProduct(string id)
+        public async Task<ActionResult<ProductDto>> GetProduct(string id) // Kiểu trả về là ProductDto
         {
             var product = await _context.Products.FindAsync(id);
 
             if (product == null)
             {
-                return NotFound(); // Trả về lỗi 404 Not Found
+                return NotFound();
             }
 
-            return product; // Trả về Product tìm được
+            // Sử dụng AutoMapper để ánh xạ từ Product Model sang ProductDto
+            var productDto = _mapper.Map<ProductDto>(product);
+            return Ok(productDto);
         }
 
         // API: POST api/Products
-        // Tạo một Product mới
+        // Tạo một Product mới, nhận vào Product Model, trả về ProductDto sau khi tạo
         [HttpPost]
-        public async Task<ActionResult<Product>> PostProduct(Product product)
+        public async Task<ActionResult<ProductDto>> PostProduct(Product product) // Kiểu trả về là ProductDto
         {
-            _context.Products.Add(product); // Thêm Product mới vào DbSet
-            await _context.SaveChangesAsync(); // Lưu các thay đổi vào database
+            _context.Products.Add(product);
+            await _context.SaveChangesAsync();
 
-            // Trả về kết quả 201 Created và thông tin của Product vừa tạo
-            return CreatedAtAction(nameof(GetProduct), new { id = product.ProductID }, product);
+            // Không cần LoadAsync() vì ProductDto không có Navigation Property cần tải
+            // Nếu có, cần load ở đây
+
+            // Ánh xạ Product Model vừa tạo sang ProductDto để trả về
+            var productDto = _mapper.Map<ProductDto>(product);
+            return CreatedAtAction(nameof(GetProduct), new { id = productDto.ProductID }, productDto);
         }
 
         // API: PUT api/Products/{id}
-        // Cập nhật thông tin một Product hiện có
         [HttpPut("{id}")]
         public async Task<IActionResult> PutProduct(string id, Product product)
         {
-            // Kiểm tra xem ID trong đường dẫn có khớp với ProductID trong body request không
             if (id != product.ProductID)
             {
-                return BadRequest(); // Trả về lỗi 400 Bad Request nếu không khớp
+                return BadRequest();
             }
 
-            _context.Entry(product).State = EntityState.Modified; // Đánh dấu Entity là đã được Modified
+            _context.Entry(product).State = EntityState.Modified;
 
             try
             {
-                await _context.SaveChangesAsync(); // Lưu các thay đổi vào database
+                await _context.SaveChangesAsync();
             }
-            catch (DbUpdateConcurrencyException) // Xử lý lỗi nếu có xung đột cập nhật
+            catch (DbUpdateConcurrencyException)
             {
-                if (!ProductExists(id)) // Kiểm tra xem Product có tồn tại không
+                if (!ProductExists(id))
                 {
-                    return NotFound(); // Nếu không tồn tại, trả về 404 Not Found
+                    return NotFound();
                 }
                 else
                 {
-                    throw; // Nếu là lỗi khác, ném lại lỗi
+                    throw;
                 }
             }
 
-            return NoContent(); // Trả về 204 No Content (cập nhật thành công nhưng không có nội dung trả về)
+            return NoContent();
         }
 
         // API: DELETE api/Products/{id}
-        // Xóa một Product
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProduct(string id)
         {
-            var product = await _context.Products.FindAsync(id); // Tìm Product cần xóa
+            var product = await _context.Products.FindAsync(id);
             if (product == null)
             {
-                return NotFound(); // Nếu không tìm thấy
+                return NotFound();
             }
 
-            _context.Products.Remove(product); // Xóa Product khỏi DbSet
-            await _context.SaveChangesAsync(); // Lưu thay đổi vào database
+            _context.Products.Remove(product);
+            await _context.SaveChangesAsync();
 
-            return NoContent(); // Trả về 204 No Content
+            return NoContent();
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem Product có tồn tại không
         private bool ProductExists(string id)
         {
             return _context.Products.Any(e => e.ProductID == id);

@@ -4,9 +4,9 @@ using Microsoft.EntityFrameworkCore;
 using DecalXeAPI.MappingProfiles;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddAutoMapper(typeof(MainMappingProfile).Assembly); // <-- SỬA DÒNG NÀY
 
 // Đăng ký AutoMapper
-builder.Services.AddAutoMapper(typeof(AccountMappingProfile).Assembly); // <-- SỬA DÒNG NÀY
  // Dòng này sẽ tự động tìm tất cả các Profile trong cùng Assembly với Program.cs
 // Hoặc cụ thể hơn nếu đệ có nhiều Profile rải rác:
 // builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());

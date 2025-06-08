@@ -2,7 +2,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DecalXeAPI.Data;
 using DecalXeAPI.Models;
-using System;
+using DecalXeAPI.DTOs; // Để sử dụng TimeSlotDefinitionDto
+using AutoMapper; // Để sử dụng AutoMapper
+using System.Collections.Generic; // Để sử dụng IEnumerable
+using System; // Để sử dụng TimeSpan
 
 namespace DecalXeAPI.Controllers
 {
@@ -11,97 +14,103 @@ namespace DecalXeAPI.Controllers
     public class TimeSlotDefinitionsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IMapper _mapper; // Khai báo biến IMapper
 
-        public TimeSlotDefinitionsController(ApplicationDbContext context)
+        public TimeSlotDefinitionsController(ApplicationDbContext context, IMapper mapper) // Tiêm IMapper
         {
             _context = context;
+            _mapper = mapper;
         }
 
         // API: GET api/TimeSlotDefinitions
-        // Lấy tất cả các TimeSlotDefinition có trong database
+        // Lấy tất cả các TimeSlotDefinition, trả về dưới dạng TimeSlotDefinitionDto
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<TimeSlotDefinition>>> GetTimeSlotDefinitions()
+        public async Task<ActionResult<IEnumerable<TimeSlotDefinitionDto>>> GetTimeSlotDefinitions() // Kiểu trả về là TimeSlotDefinitionDto
         {
-            return await _context.TimeSlotDefinitions.ToListAsync();
+            var timeSlotDefinitions = await _context.TimeSlotDefinitions.ToListAsync();
+            // Sử dụng AutoMapper để ánh xạ từ List<TimeSlotDefinition> sang List<TimeSlotDefinitionDto>
+            var timeSlotDefinitionDtos = _mapper.Map<List<TimeSlotDefinitionDto>>(timeSlotDefinitions);
+            return Ok(timeSlotDefinitionDtos);
         }
 
         // API: GET api/TimeSlotDefinitions/{id}
-        // Lấy thông tin một TimeSlotDefinition theo SlotDefID
+        // Lấy thông tin một TimeSlotDefinition theo SlotDefID, trả về dưới dạng TimeSlotDefinitionDto
         [HttpGet("{id}")]
-        public async Task<ActionResult<TimeSlotDefinition>> GetTimeSlotDefinition(string id)
+        public async Task<ActionResult<TimeSlotDefinitionDto>> GetTimeSlotDefinition(string id) // Kiểu trả về là TimeSlotDefinitionDto
         {
             var timeSlotDefinition = await _context.TimeSlotDefinitions.FindAsync(id);
 
             if (timeSlotDefinition == null)
             {
-                return NotFound(); // Trả về lỗi 404 Not Found
+                return NotFound();
             }
 
-            return timeSlotDefinition; // Trả về TimeSlotDefinition tìm được
+            // Sử dụng AutoMapper để ánh xạ từ TimeSlotDefinition Model sang TimeSlotDefinitionDto
+            var timeSlotDefinitionDto = _mapper.Map<TimeSlotDefinitionDto>(timeSlotDefinition);
+            return Ok(timeSlotDefinitionDto);
         }
 
         // API: POST api/TimeSlotDefinitions
-        // Tạo một TimeSlotDefinition mới
+        // Tạo một TimeSlotDefinition mới, nhận vào TimeSlotDefinition Model, trả về TimeSlotDefinitionDto sau khi tạo
         [HttpPost]
-        public async Task<ActionResult<TimeSlotDefinition>> PostTimeSlotDefinition(TimeSlotDefinition timeSlotDefinition)
+        public async Task<ActionResult<TimeSlotDefinitionDto>> PostTimeSlotDefinition(TimeSlotDefinition timeSlotDefinition) // Kiểu trả về là TimeSlotDefinitionDto
         {
-            _context.TimeSlotDefinitions.Add(timeSlotDefinition); // Thêm TimeSlotDefinition mới vào DbSet
-            await _context.SaveChangesAsync(); // Lưu các thay đổi vào database
+            _context.TimeSlotDefinitions.Add(timeSlotDefinition);
+            await _context.SaveChangesAsync();
 
-            // Trả về kết quả 201 Created và thông tin của TimeSlotDefinition vừa tạo
-            return CreatedAtAction(nameof(GetTimeSlotDefinition), new { id = timeSlotDefinition.SlotDefID }, timeSlotDefinition);
+            // Không cần LoadAsync() vì TimeSlotDefinitionDto không có Navigation Property cần tải
+
+            // Ánh xạ TimeSlotDefinition Model vừa tạo sang TimeSlotDefinitionDto để trả về
+            var timeSlotDefinitionDto = _mapper.Map<TimeSlotDefinitionDto>(timeSlotDefinition);
+            return CreatedAtAction(nameof(GetTimeSlotDefinition), new { id = timeSlotDefinitionDto.SlotDefID }, timeSlotDefinitionDto);
         }
 
         // API: PUT api/TimeSlotDefinitions/{id}
-        // Cập nhật thông tin một TimeSlotDefinition hiện có
         [HttpPut("{id}")]
         public async Task<IActionResult> PutTimeSlotDefinition(string id, TimeSlotDefinition timeSlotDefinition)
         {
-            // Kiểm tra xem ID trong đường dẫn có khớp với SlotDefID trong body request không
             if (id != timeSlotDefinition.SlotDefID)
             {
-                return BadRequest(); // Trả về lỗi 400 Bad Request nếu không khớp
+                return BadRequest();
             }
 
-            _context.Entry(timeSlotDefinition).State = EntityState.Modified; // Đánh dấu Entity là đã được Modified
+            _context.Entry(timeSlotDefinition).State = EntityState.Modified;
 
             try
             {
-                await _context.SaveChangesAsync(); // Lưu các thay đổi vào database
+                await _context.SaveChangesAsync();
             }
-            catch (DbUpdateConcurrencyException) // Xử lý lỗi nếu có xung đột cập nhật
+            catch (DbUpdateConcurrencyException)
             {
-                if (!TimeSlotDefinitionExists(id)) // Kiểm tra xem TimeSlotDefinition có tồn tại không
+                if (!TimeSlotDefinitionExists(id))
                 {
-                    return NotFound(); // Nếu không tồn tại, trả về 404 Not Found
+                    return NotFound();
                 }
                 else
                 {
-                    throw; // Nếu là lỗi khác, ném lại lỗi
+                    throw;
                 }
             }
 
-            return NoContent(); // Trả về 204 No Content (cập nhật thành công nhưng không có nội dung trả về)
+            return NoContent();
         }
 
         // API: DELETE api/TimeSlotDefinitions/{id}
-        // Xóa một TimeSlotDefinition
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteTimeSlotDefinition(string id)
         {
-            var timeSlotDefinition = await _context.TimeSlotDefinitions.FindAsync(id); // Tìm TimeSlotDefinition cần xóa
+            var timeSlotDefinition = await _context.TimeSlotDefinitions.FindAsync(id);
             if (timeSlotDefinition == null)
             {
-                return NotFound(); // Nếu không tìm thấy
+                return NotFound();
             }
 
-            _context.TimeSlotDefinitions.Remove(timeSlotDefinition); // Xóa TimeSlotDefinition khỏi DbSet
-            await _context.SaveChangesAsync(); // Lưu thay đổi vào database
+            _context.TimeSlotDefinitions.Remove(timeSlotDefinition);
+            await _context.SaveChangesAsync();
 
-            return NoContent(); // Trả về 204 No Content
+            return NoContent();
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem TimeSlotDefinition có tồn tại không
         private bool TimeSlotDefinitionExists(string id)
         {
             return _context.TimeSlotDefinitions.Any(e => e.SlotDefID == id);

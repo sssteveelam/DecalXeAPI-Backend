@@ -2,7 +2,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DecalXeAPI.Data;
 using DecalXeAPI.Models;
-using System;
+using DecalXeAPI.DTOs; // Để sử dụng PaymentDto
+using AutoMapper; // Để sử dụng AutoMapper
+using System.Collections.Generic; // Để sử dụng IEnumerable
+using System; // Để sử dụng DateTime
 
 namespace DecalXeAPI.Controllers
 {
@@ -11,27 +14,32 @@ namespace DecalXeAPI.Controllers
     public class PaymentsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IMapper _mapper; // Khai báo biến IMapper
 
-        public PaymentsController(ApplicationDbContext context)
+        public PaymentsController(ApplicationDbContext context, IMapper mapper) // Tiêm IMapper
         {
             _context = context;
+            _mapper = mapper;
         }
 
         // API: GET api/Payments
-        // Lấy tất cả các Payment, bao gồm thông tin Order và Promotion liên quan
+        // Lấy tất cả các Payment, bao gồm thông tin Order và Promotion liên quan, trả về DTO
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Payment>>> GetPayments()
+        public async Task<ActionResult<IEnumerable<PaymentDto>>> GetPayments() // Kiểu trả về là PaymentDto
         {
-            return await _context.Payments
-                                .Include(p => p.Order)
-                                .Include(p => p.Promotion)
-                                .ToListAsync();
+            var payments = await _context.Payments
+                                        .Include(p => p.Order)
+                                        .Include(p => p.Promotion)
+                                        .ToListAsync();
+            // Sử dụng AutoMapper để ánh xạ từ List<Payment> sang List<PaymentDto>
+            var paymentDtos = _mapper.Map<List<PaymentDto>>(payments);
+            return Ok(paymentDtos);
         }
 
         // API: GET api/Payments/{id}
-        // Lấy thông tin một Payment theo PaymentID, bao gồm các thông tin liên quan
+        // Lấy thông tin một Payment theo PaymentID, bao gồm các thông tin liên quan, trả về DTO
         [HttpGet("{id}")]
-        public async Task<ActionResult<Payment>> GetPayment(string id)
+        public async Task<ActionResult<PaymentDto>> GetPayment(string id) // Kiểu trả về là PaymentDto
         {
             var payment = await _context.Payments
                                         .Include(p => p.Order)
@@ -43,19 +51,22 @@ namespace DecalXeAPI.Controllers
                 return NotFound();
             }
 
-            return payment;
+            // Sử dụng AutoMapper để ánh xạ từ Payment Model sang PaymentDto
+            var paymentDto = _mapper.Map<PaymentDto>(payment);
+            return Ok(paymentDto);
         }
 
         // API: POST api/Payments
-        // Tạo một Payment mới
+        // Tạo một Payment mới, nhận vào Payment Model, trả về PaymentDto sau khi tạo
         [HttpPost]
-        public async Task<ActionResult<Payment>> PostPayment(Payment payment)
+        public async Task<ActionResult<PaymentDto>> PostPayment(Payment payment) // Kiểu trả về là PaymentDto
         {
             // Kiểm tra FKs có tồn tại không
             if (!string.IsNullOrEmpty(payment.OrderID) && !OrderExists(payment.OrderID))
             {
                 return BadRequest("OrderID không tồn tại.");
             }
+            // PromotionID có thể null, chỉ kiểm tra nếu có giá trị
             if (!string.IsNullOrEmpty(payment.PromotionID) && !PromotionExists(payment.PromotionID))
             {
                 return BadRequest("PromotionID không tồn tại.");
@@ -64,15 +75,16 @@ namespace DecalXeAPI.Controllers
             _context.Payments.Add(payment);
             await _context.SaveChangesAsync();
 
-            // Tải lại thông tin liên quan để trả về đầy đủ
+            // Tải lại thông tin liên quan để AutoMapper có thể ánh xạ đầy đủ
             await _context.Entry(payment).Reference(p => p.Order).LoadAsync();
             await _context.Entry(payment).Reference(p => p.Promotion).LoadAsync();
 
-            return CreatedAtAction(nameof(GetPayment), new { id = payment.PaymentID }, payment);
+            // Ánh xạ Payment Model vừa tạo sang PaymentDto để trả về
+            var paymentDto = _mapper.Map<PaymentDto>(payment);
+            return CreatedAtAction(nameof(GetPayment), new { id = paymentDto.PaymentID }, paymentDto);
         }
 
         // API: PUT api/Payments/{id}
-        // Cập nhật thông tin một Payment hiện có
         [HttpPut("{id}")]
         public async Task<IActionResult> PutPayment(string id, Payment payment)
         {
@@ -81,7 +93,6 @@ namespace DecalXeAPI.Controllers
                 return BadRequest();
             }
 
-            // Kiểm tra FKs trước khi cập nhật
             if (!string.IsNullOrEmpty(payment.OrderID) && !OrderExists(payment.OrderID))
             {
                 return BadRequest("OrderID không tồn tại.");
@@ -113,7 +124,6 @@ namespace DecalXeAPI.Controllers
         }
 
         // API: DELETE api/Payments/{id}
-        // Xóa một Payment
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeletePayment(string id)
         {
@@ -129,19 +139,16 @@ namespace DecalXeAPI.Controllers
             return NoContent();
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem Payment có tồn tại không
         private bool PaymentExists(string id)
         {
             return _context.Payments.Any(e => e.PaymentID == id);
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem Order có tồn tại không (copy từ OrdersController)
         private bool OrderExists(string id)
         {
             return _context.Orders.Any(e => e.OrderID == id);
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem Promotion có tồn tại không (copy từ PromotionsController)
         private bool PromotionExists(string id)
         {
             return _context.Promotions.Any(e => e.PromotionID == id);

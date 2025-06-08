@@ -2,6 +2,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DecalXeAPI.Data;
 using DecalXeAPI.Models;
+using DecalXeAPI.DTOs; // Để sử dụng ScheduledWorkUnitDto
+using AutoMapper; // Để sử dụng AutoMapper
+using System.Collections.Generic; // Để sử dụng IEnumerable
+using System; // Để sử dụng DateTime/TimeSpan
 
 namespace DecalXeAPI.Controllers
 {
@@ -10,47 +14,54 @@ namespace DecalXeAPI.Controllers
     public class ScheduledWorkUnitsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IMapper _mapper; // Khai báo biến IMapper
 
-        public ScheduledWorkUnitsController(ApplicationDbContext context)
+        public ScheduledWorkUnitsController(ApplicationDbContext context, IMapper mapper) // Tiêm IMapper
         {
             _context = context;
+            _mapper = mapper;
         }
 
         // API: GET api/ScheduledWorkUnits
-        // Lấy tất cả các ScheduledWorkUnit, bao gồm thông tin DailySchedule, TimeSlotDefinition và Order liên quan
+        // Lấy tất cả các ScheduledWorkUnit, bao gồm thông tin DailySchedule, TimeSlotDefinition và Order liên quan, trả về DTO
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<ScheduledWorkUnit>>> GetScheduledWorkUnits()
+        public async Task<ActionResult<IEnumerable<ScheduledWorkUnitDto>>> GetScheduledWorkUnits() // Kiểu trả về là ScheduledWorkUnitDto
         {
-            return await _context.ScheduledWorkUnits
-                                .Include(swu => swu.DailySchedule)
-                                .Include(swu => swu.TimeSlotDefinition)
-                                .Include(swu => swu.Order)
-                                .ToListAsync();
-        }
-
-        // API: GET api/ScheduledWorkUnits/{id}
-        // Lấy thông tin một ScheduledWorkUnit theo ScheduledWorkUnitID, bao gồm các thông tin liên quan
-        [HttpGet("{id}")]
-        public async Task<ActionResult<ScheduledWorkUnit>> GetScheduledWorkUnit(string id)
-        {
-            var scheduledWorkUnit = await _context.ScheduledWorkUnits
+            var scheduledWorkUnits = await _context.ScheduledWorkUnits
                                                     .Include(swu => swu.DailySchedule)
                                                     .Include(swu => swu.TimeSlotDefinition)
                                                     .Include(swu => swu.Order)
-                                                    .FirstOrDefaultAsync(swu => swu.ScheduledWorkUnitID == id);
+                                                    .ToListAsync();
+            // Sử dụng AutoMapper để ánh xạ từ List<ScheduledWorkUnit> sang List<ScheduledWorkUnitDto>
+            var scheduledWorkUnitDtos = _mapper.Map<List<ScheduledWorkUnitDto>>(scheduledWorkUnits);
+            return Ok(scheduledWorkUnitDtos);
+        }
+
+        // API: GET api/ScheduledWorkUnits/{id}
+        // Lấy thông tin một ScheduledWorkUnit theo ScheduledWorkUnitID, bao gồm các thông tin liên quan, trả về DTO
+        [HttpGet("{id}")]
+        public async Task<ActionResult<ScheduledWorkUnitDto>> GetScheduledWorkUnit(string id) // Kiểu trả về là ScheduledWorkUnitDto
+        {
+            var scheduledWorkUnit = await _context.ScheduledWorkUnits
+                                                        .Include(swu => swu.DailySchedule)
+                                                        .Include(swu => swu.TimeSlotDefinition)
+                                                        .Include(swu => swu.Order)
+                                                        .FirstOrDefaultAsync(swu => swu.ScheduledWorkUnitID == id);
 
             if (scheduledWorkUnit == null)
             {
                 return NotFound();
             }
 
-            return scheduledWorkUnit;
+            // Sử dụng AutoMapper để ánh xạ từ ScheduledWorkUnit Model sang ScheduledWorkUnitDto
+            var scheduledWorkUnitDto = _mapper.Map<ScheduledWorkUnitDto>(scheduledWorkUnit);
+            return Ok(scheduledWorkUnitDto);
         }
 
         // API: POST api/ScheduledWorkUnits
-        // Tạo một ScheduledWorkUnit mới
+        // Tạo một ScheduledWorkUnit mới, nhận vào ScheduledWorkUnit Model, trả về ScheduledWorkUnitDto sau khi tạo
         [HttpPost]
-        public async Task<ActionResult<ScheduledWorkUnit>> PostScheduledWorkUnit(ScheduledWorkUnit scheduledWorkUnit)
+        public async Task<ActionResult<ScheduledWorkUnitDto>> PostScheduledWorkUnit(ScheduledWorkUnit scheduledWorkUnit) // Kiểu trả về là ScheduledWorkUnitDto
         {
             // Kiểm tra FKs có tồn tại không
             if (!string.IsNullOrEmpty(scheduledWorkUnit.DailyScheduleID) && !TechnicianDailyScheduleExists(scheduledWorkUnit.DailyScheduleID))
@@ -61,6 +72,7 @@ namespace DecalXeAPI.Controllers
             {
                 return BadRequest("SlotDefID không tồn tại.");
             }
+            // OrderID có thể null, chỉ kiểm tra nếu có giá trị
             if (!string.IsNullOrEmpty(scheduledWorkUnit.OrderID) && !OrderExists(scheduledWorkUnit.OrderID))
             {
                 return BadRequest("OrderID không tồn tại.");
@@ -69,16 +81,17 @@ namespace DecalXeAPI.Controllers
             _context.ScheduledWorkUnits.Add(scheduledWorkUnit);
             await _context.SaveChangesAsync();
 
-            // Tải lại thông tin liên quan để trả về đầy đủ
+            // Tải lại thông tin liên quan để AutoMapper có thể ánh xạ đầy đủ
             await _context.Entry(scheduledWorkUnit).Reference(swu => swu.DailySchedule).LoadAsync();
             await _context.Entry(scheduledWorkUnit).Reference(swu => swu.TimeSlotDefinition).LoadAsync();
             await _context.Entry(scheduledWorkUnit).Reference(swu => swu.Order).LoadAsync();
 
-            return CreatedAtAction(nameof(GetScheduledWorkUnit), new { id = scheduledWorkUnit.ScheduledWorkUnitID }, scheduledWorkUnit);
+            // Ánh xạ ScheduledWorkUnit Model vừa tạo sang ScheduledWorkUnitDto để trả về
+            var scheduledWorkUnitDto = _mapper.Map<ScheduledWorkUnitDto>(scheduledWorkUnit);
+            return CreatedAtAction(nameof(GetScheduledWorkUnit), new { id = scheduledWorkUnitDto.ScheduledWorkUnitID }, scheduledWorkUnitDto);
         }
 
         // API: PUT api/ScheduledWorkUnits/{id}
-        // Cập nhật thông tin một ScheduledWorkUnit hiện có
         [HttpPut("{id}")]
         public async Task<IActionResult> PutScheduledWorkUnit(string id, ScheduledWorkUnit scheduledWorkUnit)
         {
@@ -123,7 +136,6 @@ namespace DecalXeAPI.Controllers
         }
 
         // API: DELETE api/ScheduledWorkUnits/{id}
-        // Xóa một ScheduledWorkUnit
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteScheduledWorkUnit(string id)
         {
@@ -139,25 +151,21 @@ namespace DecalXeAPI.Controllers
             return NoContent();
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem ScheduledWorkUnit có tồn tại không
         private bool ScheduledWorkUnitExists(string id)
         {
             return _context.ScheduledWorkUnits.Any(e => e.ScheduledWorkUnitID == id);
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem TechnicianDailySchedule có tồn tại không (copy từ TechnicianDailySchedulesController)
         private bool TechnicianDailyScheduleExists(string id)
         {
             return _context.TechnicianDailySchedules.Any(e => e.DailyScheduleID == id);
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem TimeSlotDefinition có tồn tại không (copy từ TimeSlotDefinitionsController, sẽ tạo sau)
         private bool TimeSlotDefinitionExists(string id)
         {
             return _context.TimeSlotDefinitions.Any(e => e.SlotDefID == id);
         }
 
-        // Hàm hỗ trợ: Kiểm tra xem Order có tồn tại không (copy từ OrdersController)
         private bool OrderExists(string id)
         {
             return _context.Orders.Any(e => e.OrderID == id);
