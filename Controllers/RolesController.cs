@@ -5,11 +5,14 @@ using DecalXeAPI.Models;
 using DecalXeAPI.DTOs; // Để sử dụng RoleDto (nếu có, hoặc sử dụng Model trực tiếp nếu DTO không thêm gì mới)
 using AutoMapper; // Để sử dụng AutoMapper
 using System.Collections.Generic; // Để sử dụng IEnumerable
+using Microsoft.AspNetCore.Authorization;
+
 
 namespace DecalXeAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "Admin")] // <-- THÊM DÒNG NÀY: Chỉ Admin mới được quản lý Roles
     public class RolesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;

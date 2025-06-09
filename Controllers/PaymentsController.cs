@@ -5,12 +5,14 @@ using DecalXeAPI.Models;
 using DecalXeAPI.DTOs; // Để sử dụng PaymentDto
 using AutoMapper; // Để sử dụng AutoMapper
 using System.Collections.Generic; // Để sử dụng IEnumerable
-using System; // Để sử dụng DateTime
+using System;
+using Microsoft.AspNetCore.Authorization; // Để sử dụng DateTime
 
 namespace DecalXeAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "Admin,Manager,Sales,Accountant")]
     public class PaymentsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;

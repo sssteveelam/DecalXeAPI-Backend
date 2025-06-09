@@ -5,12 +5,14 @@ using DecalXeAPI.Models;
 using DecalXeAPI.DTOs; // Để sử dụng TimeSlotDefinitionDto
 using AutoMapper; // Để sử dụng AutoMapper
 using System.Collections.Generic; // Để sử dụng IEnumerable
-using System; // Để sử dụng TimeSpan
+using System;
+using Microsoft.AspNetCore.Authorization; // Để sử dụng TimeSpan
 
 namespace DecalXeAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "Admin,Manager")]
     public class TimeSlotDefinitionsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;

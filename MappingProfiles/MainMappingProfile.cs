@@ -113,6 +113,26 @@ namespace DecalXeAPI.MappingProfiles
             CreateMap<Warranty, WarrantyDto>()
                 .ForMember(dest => dest.OrderStatus, opt => opt.MapFrom(src => src.Order != null ? src.Order.OrderStatus : null));
 
+            // Ánh xạ từ CreateCustomServiceRequestDto (Input DTO) sang CustomServiceRequest Model
+            CreateMap<CreateCustomServiceRequestDto, CustomServiceRequest>()
+                .ForMember(dest => dest.CustomRequestID, opt => opt.MapFrom(src => Guid.NewGuid().ToString())) // Tự sinh ID
+                .ForMember(dest => dest.RequestDate, opt => opt.MapFrom(src => DateTime.UtcNow)) // Tự động gán ngày hiện tại
+                .ForMember(dest => dest.RequestStatus, opt => opt.MapFrom(src => "New")) // Tự động gán trạng thái ban đầu là "New"
+                .ForMember(dest => dest.OrderID, opt => opt.Ignore()) // Bỏ qua OrderID từ input, sẽ gán sau khi chuyển đổi thành Order
+                .ForMember(dest => dest.Customer, opt => opt.Ignore()) // Bỏ qua Navigation Property Customer
+                .ForMember(dest => dest.SalesEmployee, opt => opt.Ignore()) // Bỏ qua Navigation Property SalesEmployee
+                .ForMember(dest => dest.Order, opt => opt.Ignore()); // Bỏ qua Navigation Property Order
+
+
+            // Ánh xạ từ ConvertCsrToOrderDto sang Order Model
+            CreateMap<ConvertCsrToOrderDto, Order>()
+                .ForMember(dest => dest.OrderID, opt => opt.MapFrom(src => Guid.NewGuid().ToString())) // Tự sinh OrderID
+                .ForMember(dest => dest.OrderDate, opt => opt.MapFrom(src => DateTime.UtcNow)) // Tự động gán ngày đặt hàng
+                .ForMember(dest => dest.TotalAmount, opt => opt.MapFrom(src => src.EstimatedCost)) // Gán tổng tiền ban đầu từ EstimatedCost
+                .ForMember(dest => dest.OrderStatus, opt => opt.MapFrom(src => "New")) // Trạng thái ban đầu là "New"
+                .ForMember(dest => dest.CustomerID, opt => opt.Ignore()) // CustomerID sẽ được gán từ CustomServiceRequest
+                .ForMember(dest => dest.CustomServiceRequest, opt => opt.Ignore()); // Bỏ qua Navigation Property này từ DTO
+
         }
     }
 }

@@ -6,54 +6,59 @@ using DecalXeAPI.DTOs;
 using AutoMapper;
 using System.Collections.Generic;
 using System;
-using DecalXeAPI.QueryParams; // <-- THÊM DÒNG NÀY
+using System.Linq;
+using DecalXeAPI.QueryParams;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging; // <-- THÊM DÒNG NÀY
 
 namespace DecalXeAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class OrdersController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
         private readonly IMapper _mapper;
+        private readonly ILogger<OrdersController> _logger; // <-- KHAI BÁO BIẾN ILogger
 
-        public OrdersController(ApplicationDbContext context, IMapper mapper)
+        public OrdersController(ApplicationDbContext context, IMapper mapper, ILogger<OrdersController> logger) // <-- TIÊM ILogger VÀO CONSTRUCTOR
         {
             _context = context;
             _mapper = mapper;
+            _logger = logger; // <-- GÁN GIÁ TRỊ
         }
 
         // API: GET api/Orders
-        // Lấy tất cả các Order, có hỗ trợ tìm kiếm, lọc, sắp xếp và phân trang
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<OrderDto>>> GetOrders([FromQuery] OrderQueryParams queryParams) // <-- THÊM THAM SỐ queryParams
+        [Authorize(Roles = "Admin,Manager,Sales,Technician,Customer")]
+        public async Task<ActionResult<IEnumerable<OrderDto>>> GetOrders([FromQuery] OrderQueryParams queryParams)
         {
-            // Bắt đầu truy vấn
+            _logger.LogInformation("Lấy danh sách đơn hàng với các tham số: {SearchTerm}, {Status}, {SortBy}, {SortOrder}, Page {PageNumber} Size {PageSize}",
+                                    queryParams.SearchTerm, queryParams.Status, queryParams.SortBy, queryParams.SortOrder, queryParams.PageNumber, queryParams.PageSize);
+
             var query = _context.Orders
                                 .Include(o => o.Customer)
                                 .Include(o => o.AssignedEmployee)
                                 .Include(o => o.CustomServiceRequest)
-                                .AsQueryable(); // Chuyển sang IQueryable để có thể xây dựng truy vấn động
+                                .AsQueryable();
 
-            // 1. Lọc (Filtering)
             if (!string.IsNullOrEmpty(queryParams.Status))
             {
                 query = query.Where(o => o.OrderStatus.ToLower() == queryParams.Status.ToLower());
             }
 
-            // 2. Tìm kiếm (Searching)
             if (!string.IsNullOrEmpty(queryParams.SearchTerm))
             {
                 query = query.Where(o =>
                     o.Customer.FirstName.ToLower().Contains(queryParams.SearchTerm.ToLower()) ||
                     o.Customer.LastName.ToLower().Contains(queryParams.SearchTerm.ToLower()) ||
-                    o.AssignedEmployee.FirstName.ToLower().Contains(queryParams.SearchTerm.ToLower()) ||
-                    o.AssignedEmployee.LastName.ToLower().Contains(queryParams.SearchTerm.ToLower()) ||
+                    (o.AssignedEmployee != null && (o.AssignedEmployee.FirstName.ToLower().Contains(queryParams.SearchTerm.ToLower()) ||
+                    o.AssignedEmployee.LastName.ToLower().Contains(queryParams.SearchTerm.ToLower()))) ||
                     (o.CustomServiceRequest != null && o.CustomServiceRequest.Description.ToLower().Contains(queryParams.SearchTerm.ToLower()))
                 );
             }
 
-            // 3. Sắp xếp (Sorting)
             if (!string.IsNullOrEmpty(queryParams.SortBy))
             {
                 switch (queryParams.SortBy.ToLower())
@@ -70,42 +75,39 @@ namespace DecalXeAPI.Controllers
                     case "orderstatus":
                         query = queryParams.SortOrder.ToLower() == "desc" ? query.OrderByDescending(o => o.OrderStatus) : query.OrderBy(o => o.OrderStatus);
                         break;
-                    default: // Mặc định sắp xếp theo OrderDate nếu không hợp lệ
+                    default:
                         query = query.OrderBy(o => o.OrderDate);
                         break;
                 }
             }
             else
             {
-                // Luôn có một thứ tự sắp xếp mặc định để đảm bảo phân trang hoạt động đúng
                 query = query.OrderBy(o => o.OrderDate);
             }
 
-
-            // 4. Phân trang (Paging)
-            var totalCount = await query.CountAsync(); // Lấy tổng số bản ghi trước khi phân trang
+            var totalCount = await query.CountAsync();
             var orders = await query
-                                .Skip((queryParams.PageNumber - 1) * queryParams.PageSize) // Bỏ qua các bản ghi ở trang trước
-                                .Take(queryParams.PageSize) // Lấy số bản ghi cho trang hiện tại
+                                .Skip((queryParams.PageNumber - 1) * queryParams.PageSize)
+                                .Take(queryParams.PageSize)
                                 .ToListAsync();
 
-            // Ánh xạ sang DTO
             var orderDtos = _mapper.Map<List<OrderDto>>(orders);
 
-            // Thêm thông tin phân trang vào Header của Response (Optional nhưng rất nên làm)
-            Response.Headers.Add("X-Total-Count", totalCount.ToString());
-            Response.Headers.Add("X-Page-Number", queryParams.PageNumber.ToString());
-            Response.Headers.Add("X-Page-Size", queryParams.PageSize.ToString());
-            Response.Headers.Add("X-Total-Pages", ((int)Math.Ceiling((double)totalCount / queryParams.PageSize)).ToString());
+            Response.Headers.Append("X-Total-Count", totalCount.ToString());
+            Response.Headers.Append("X-Page-Number", queryParams.PageNumber.ToString());
+            Response.Headers.Append("X-Page-Size", queryParams.PageSize.ToString());
+            Response.Headers.Append("X-Total-Pages", ((int)Math.Ceiling((double)totalCount / queryParams.PageSize)).ToString());
 
-
+            _logger.LogInformation("Đã trả về {Count} đơn hàng (tổng cộng {TotalCount}).", orderDtos.Count, totalCount);
             return Ok(orderDtos);
         }
 
-        // Các API GET by ID, POST, PUT, DELETE giữ nguyên
+        // API: GET api/Orders/{id}
         [HttpGet("{id}")]
+        [Authorize(Roles = "Admin,Manager,Sales,Technician,Customer")]
         public async Task<ActionResult<OrderDto>> GetOrder(string id)
         {
+            _logger.LogInformation("Yêu cầu lấy thông tin đơn hàng với ID: {OrderID}", id);
             var order = await _context.Orders
                                     .Include(o => o.Customer)
                                     .Include(o => o.AssignedEmployee)
@@ -114,27 +116,36 @@ namespace DecalXeAPI.Controllers
 
             if (order == null)
             {
+                _logger.LogWarning("Không tìm thấy đơn hàng với ID: {OrderID}", id);
                 return NotFound();
             }
 
             var orderDto = _mapper.Map<OrderDto>(order);
+            _logger.LogInformation("Đã trả về đơn hàng với ID: {OrderID}", id);
             return Ok(orderDto);
         }
 
+        // API: POST api/Orders
         [HttpPost]
+        [Authorize(Roles = "Admin,Manager,Sales")]
         public async Task<ActionResult<OrderDto>> PostOrder(Order order)
         {
+            _logger.LogInformation("Yêu cầu tạo đơn hàng mới cho CustomerID: {CustomerID}", order.CustomerID);
+
             if (!string.IsNullOrEmpty(order.CustomerID) && !CustomerExists(order.CustomerID))
             {
+                _logger.LogWarning("CustomerID không tồn tại: {CustomerID}", order.CustomerID);
                 return BadRequest("CustomerID không tồn tại.");
             }
             if (!string.IsNullOrEmpty(order.AssignedEmployeeID) && !EmployeeExists(order.AssignedEmployeeID))
             {
+                _logger.LogWarning("AssignedEmployeeID không tồn tại: {EmployeeID}", order.AssignedEmployeeID);
                 return BadRequest("AssignedEmployeeID không tồn tại.");
             }
 
             if (!string.IsNullOrEmpty(order.CustomServiceRequest?.CustomRequestID) && !CustomServiceRequestExists(order.CustomServiceRequest.CustomRequestID))
             {
+                _logger.LogWarning("CustomServiceRequestID không tồn tại: {CustomRequestID}", order.CustomServiceRequest.CustomRequestID);
                 return BadRequest("CustomServiceRequestID không tồn tại.");
             }
             if (!string.IsNullOrEmpty(order.CustomServiceRequest?.CustomRequestID))
@@ -144,12 +155,14 @@ namespace DecalXeAPI.Controllers
                                             .FirstOrDefaultAsync();
                 if (existingCsr != null)
                 {
+                    _logger.LogWarning("CustomServiceRequest đã được liên kết với Order khác: {CustomRequestID}", order.CustomServiceRequest.CustomRequestID);
                     return BadRequest("CustomServiceRequest này đã được liên kết với một Order khác.");
                 }
             }
 
             _context.Orders.Add(order);
             await _context.SaveChangesAsync();
+            _logger.LogInformation("Đã tạo Order mới với ID: {OrderID}", order.OrderID);
 
             if (!string.IsNullOrEmpty(order.CustomServiceRequest?.CustomRequestID))
             {
@@ -159,6 +172,7 @@ namespace DecalXeAPI.Controllers
                     csr.OrderID = order.OrderID;
                     _context.CustomServiceRequests.Update(csr);
                     await _context.SaveChangesAsync();
+                    _logger.LogInformation("Đã liên kết CustomServiceRequest {CustomRequestID} với Order {OrderID}", csr.CustomRequestID, order.OrderID);
                 }
             }
 
@@ -170,33 +184,40 @@ namespace DecalXeAPI.Controllers
             return CreatedAtAction(nameof(GetOrder), new { id = orderDto.OrderID }, orderDto);
         }
 
+        // API: PUT api/Orders/{id}
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin,Manager,Sales")]
         public async Task<IActionResult> PutOrder(string id, Order order)
         {
+            _logger.LogInformation("Yêu cầu cập nhật đơn hàng với ID: {OrderID}", id);
             if (id != order.OrderID)
             {
+                _logger.LogWarning("ID trong URL ({Id}) không khớp với OrderID trong body ({OrderIDBody})", id, order.OrderID);
                 return BadRequest();
             }
 
             if (!string.IsNullOrEmpty(order.CustomerID) && !CustomerExists(order.CustomerID))
             {
+                _logger.LogWarning("CustomerID không tồn tại: {CustomerID}", order.CustomerID);
                 return BadRequest("CustomerID không tồn tại.");
             }
             if (!string.IsNullOrEmpty(order.AssignedEmployeeID) && !EmployeeExists(order.AssignedEmployeeID))
             {
+                _logger.LogWarning("AssignedEmployeeID không tồn tại: {EmployeeID}", order.AssignedEmployeeID);
                 return BadRequest("AssignedEmployeeID không tồn tại.");
             }
             if (!string.IsNullOrEmpty(order.CustomServiceRequest?.CustomRequestID) && !CustomServiceRequestExists(order.CustomServiceRequest.CustomRequestID))
             {
+                _logger.LogWarning("CustomServiceRequestID không tồn tại: {CustomRequestID}", order.CustomServiceRequest.CustomRequestID);
                 return BadRequest("CustomServiceRequestID không tồn tại.");
             }
-
 
             _context.Entry(order).State = EntityState.Modified;
 
             try
             {
                 await _context.SaveChangesAsync();
+                _logger.LogInformation("Đã cập nhật đơn hàng với ID: {OrderID}", order.OrderID);
 
                 if (!string.IsNullOrEmpty(order.CustomServiceRequest?.CustomRequestID))
                 {
@@ -206,12 +227,14 @@ namespace DecalXeAPI.Controllers
                         csr.OrderID = order.OrderID;
                         _context.CustomServiceRequests.Update(csr);
                         await _context.SaveChangesAsync();
+                        _logger.LogInformation("Đã cập nhật liên kết CustomServiceRequest {CustomRequestID} với Order {OrderID}", csr.CustomRequestID, order.OrderID);
                     }
                 }
 
             }
-            catch (DbUpdateConcurrencyException)
+            catch (DbUpdateConcurrencyException ex)
             {
+                _logger.LogError(ex, "Lỗi xung đột khi cập nhật đơn hàng với ID: {OrderID}", id);
                 if (!OrderExists(id))
                 {
                     return NotFound();
@@ -225,12 +248,16 @@ namespace DecalXeAPI.Controllers
             return NoContent();
         }
 
+        // API: DELETE api/Orders/{id}
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin,Manager")]
         public async Task<IActionResult> DeleteOrder(string id)
         {
+            _logger.LogInformation("Yêu cầu xóa đơn hàng với ID: {OrderID}", id);
             var order = await _context.Orders.FindAsync(id);
             if (order == null)
             {
+                _logger.LogWarning("Không tìm thấy đơn hàng để xóa với ID: {OrderID}", id);
                 return NotFound();
             }
 
@@ -239,32 +266,96 @@ namespace DecalXeAPI.Controllers
             {
                 csr.OrderID = null;
                 _context.CustomServiceRequests.Update(csr);
+                _logger.LogInformation("Đã ngắt liên kết CustomServiceRequest {CustomRequestID} khỏi Order {OrderID}", csr.CustomRequestID, id);
             }
 
             _context.Orders.Remove(order);
             await _context.SaveChangesAsync();
+            _logger.LogInformation("Đã xóa đơn hàng với ID: {OrderID}", id);
 
             return NoContent();
         }
 
-        private bool OrderExists(string id)
+        // API: PUT api/Orders/{id}/status
+        [HttpPut("{id}/status")]
+        [Authorize(Roles = "Admin,Manager,Technician")]
+        public async Task<IActionResult> UpdateOrderStatus(string id, [FromBody] string newStatus)
         {
-            return _context.Orders.Any(e => e.OrderID == id);
+            _logger.LogInformation("Yêu cầu cập nhật trạng thái đơn hàng {OrderID} thành {NewStatus}", id, newStatus);
+            var order = await _context.Orders.FindAsync(id);
+            if (order == null)
+            {
+                _logger.LogWarning("Không tìm thấy đơn hàng để cập nhật trạng thái với ID: {OrderID}", id);
+                return NotFound();
+            }
+
+            if (string.IsNullOrEmpty(newStatus))
+            {
+                _logger.LogWarning("Trạng thái mới rỗng cho OrderID: {OrderID}", id);
+                return BadRequest("Trạng thái mới không được rỗng.");
+            }
+
+            order.OrderStatus = newStatus;
+            _context.Orders.Update(order);
+
+            try
+            {
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Đã cập nhật trạng thái đơn hàng {OrderID} thành {NewStatus} thành công.", id, newStatus);
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                _logger.LogError(ex, "Lỗi xung đột khi cập nhật trạng thái đơn hàng {OrderID}", id);
+                if (!OrderExists(id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return NoContent();
         }
 
-        private bool CustomerExists(string id)
+        // API Thống kê Doanh thu
+        [HttpGet("statistics/sales")]
+        [Authorize(Roles = "Admin,Manager,Sales")]
+        public async Task<ActionResult<IEnumerable<SalesStatisticsDto>>> GetSalesStatistics(
+            [FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate)
         {
-            return _context.Customers.Any(e => e.CustomerID == id);
+            _logger.LogInformation("Yêu cầu thống kê doanh thu từ {StartDate} đến {EndDate}", startDate, endDate);
+            var query = _context.Orders.AsQueryable();
+
+            if (startDate.HasValue)
+            {
+                query = query.Where(o => o.OrderDate >= startDate.Value);
+            }
+            if (endDate.HasValue)
+            {
+                query = query.Where(o => o.OrderDate < endDate.Value.AddDays(1));
+            }
+
+            var dailySales = await query
+                .GroupBy(o => o.OrderDate.Date)
+                .Select(g => new SalesStatisticsDto
+                {
+                    Date = g.Key,
+                    TotalSalesAmount = g.Sum(o => o.TotalAmount),
+                    TotalOrders = g.Count()
+                })
+                .OrderBy(s => s.Date)
+                .ToListAsync();
+
+            _logger.LogInformation("Đã trả về {Count} bản ghi thống kê doanh thu.", dailySales.Count);
+            return Ok(dailySales);
         }
 
-        private bool EmployeeExists(string id)
-        {
-            return _context.Employees.Any(e => e.EmployeeID == id);
-        }
-
-        private bool CustomServiceRequestExists(string id)
-        {
-            return _context.CustomServiceRequests.Any(e => e.CustomRequestID == id);
-        }
+        // --- HÀM HỖ TRỢ: KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG ---
+        private bool OrderExists(string id) { return _context.Orders.Any(e => e.OrderID == id); }
+        private bool CustomerExists(string id) { return _context.Customers.Any(e => e.CustomerID == id); }
+        private bool EmployeeExists(string id) { return _context.Employees.Any(e => e.EmployeeID == id); }
+        private bool CustomServiceRequestExists(string id) { return _context.CustomServiceRequests.Any(e => e.CustomRequestID == id); }
     }
 }

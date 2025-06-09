@@ -4,11 +4,13 @@ using DecalXeAPI.Data;
 using DecalXeAPI.Models;
 using DecalXeAPI.DTOs; // Để sử dụng AccountDto
 using AutoMapper; // <-- THÊM DÒNG NÀY ĐỂ SỬ DỤNG AUTOMAPPER
+using Microsoft.AspNetCore.Authorization;
 
 namespace DecalXeAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "Admin")]    
     public class AccountsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;

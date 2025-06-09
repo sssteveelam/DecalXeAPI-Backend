@@ -1,39 +1,125 @@
-using DecalXeAPI.Data; // Thêm dòng này để import namespace Data
-using Npgsql.EntityFrameworkCore.PostgreSQL; // <-- THÊM DÒNG NÀY VÀO ĐÂY
-using Microsoft.EntityFrameworkCore;
+using DecalXeAPI.Data;
 using DecalXeAPI.MappingProfiles;
+using DecalXeAPI.Middleware;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models; // Cần cho cấu hình Swagger
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddAutoMapper(typeof(MainMappingProfile).Assembly); // <-- SỬA DÒNG NÀY
 
-// Đăng ký AutoMapper
- // Dòng này sẽ tự động tìm tất cả các Profile trong cùng Assembly với Program.cs
-// Hoặc cụ thể hơn nếu đệ có nhiều Profile rải rác:
-// builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
-// Huynh sẽ dùng cách AddAutoMapper(typeof(Program)) vì nó đơn giản và đủ dùng.
+// --- CẤU HÌNH CÁC DỊCH VỤ (SERVICES) ---
+// Các dịch vụ này được đăng ký vào "bộ chứa dịch vụ" (Dependency Injection container)
+// để các thành phần khác của ứng dụng có thể sử dụng chúng.
 
-
-// Thêm DbContext vào Services container
+// 1. Cấu hình DbContext (Entity Framework Core)
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")) // Sử dụng Npgsql cho PostgreSQL
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")) // Sử dụng Npgsql cho PostgreSQL và lấy chuỗi kết nối
 );
 
-// Add services to the container.
+// 2. Cấu hình AutoMapper
+// AutoMapper sẽ tự động tìm tất cả các Mapping Profiles (ví dụ: MainMappingProfile)
+// trong cùng assembly với MainMappingProfile.
+builder.Services.AddAutoMapper(typeof(MainMappingProfile).Assembly);
 
+// 3. Thêm Controllers (cho các API Controller truyền thống)
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+
+// 4. Cấu hình Swagger/OpenAPI (để tạo tài liệu API tự động và giao diện test API)
+builder.Services.AddEndpointsApiExplorer(); // Cần thiết cho Swagger để khám phá các endpoint
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "DecalXeAPI", Version = "v1" });
+    // Cấu hình để Swagger UI có thể sử dụng JWT Token (Optional nhưng rất hữu ích để test Authorization)
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Nhập 'Bearer ' + JWT Token của bạn. Ví dụ: 'Bearer eyJhbGciOiJIUzI1Ni...'",
+    });
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
+// 5. Cấu hình Authentication (Xác thực người dùng)
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true, // Xác minh người phát hành token
+        ValidateAudience = true, // Xác minh đối tượng nhận token
+        ValidateLifetime = true, // Xác minh thời gian sống của token
+        ValidateIssuerSigningKey = true, // Xác minh khóa ký token
+        ValidIssuer = builder.Configuration["Jwt:Issuer"], // Lấy Issuer từ appsettings.json
+        ValidAudience = builder.Configuration["Jwt:Audience"], // Lấy Audience từ appsettings.json
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])) // Lấy khóa bí mật từ appsettings.json
+    };
+});
+
+// 6. Thêm Authorization Policy (Phân quyền người dùng đã xác thực)
+builder.Services.AddAuthorization();
+
+// 7. Cấu hình CORS (Cross-Origin Resource Sharing)
+// Cho phép Frontend (chạy ở domain/port khác) có thể gọi API của Backend
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowSpecificOrigin",
+        builder => builder.WithOrigins("http://localhost:3000", "http://localhost:3001") // Thay đổi nếu Frontend của đệ chạy ở cổng khác
+                          .AllowAnyHeader()
+                          .AllowAnyMethod()
+                          .AllowCredentials()); // Cho phép gửi cookies, authorization headers, v.v.
+});
+
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// --- CẤU HÌNH CÁC MIDDLEWARE (PIPELINE XỬ LÝ REQUEST) ---
+// Thứ tự các Middleware RẤT QUAN TRỌNG!
+
+// 1. Global Exception Handling Middleware (PHẢI ĐỨNG ĐẦU TIÊN để bắt lỗi từ tất cả các middleware khác)
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+// 2. Chuyển hướng HTTP sang HTTPS (nếu muốn dùng HTTPS)
+// app.UseHttpsRedirection(); // Đang tắt ở project template --no-https, có thể bật sau
+
+// 3. Swagger UI (Chỉ dùng trong môi trường Phát triển)
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.UseSwagger(); // Bật Swagger JSON endpoint
+    app.UseSwaggerUI(); // Bật giao diện Swagger UI
 }
 
+// 4. Sử dụng CORS
+app.UseCors("AllowSpecificOrigin");
+
+// 5. Sử dụng Authentication và Authorization
+// Authentication phải đứng trước Authorization
+app.UseAuthentication();
 app.UseAuthorization();
 
+// 6. Map các Controller (định tuyến các request đến đúng Controller và Action)
 app.MapControllers();
 
+// Khởi chạy ứng dụng
 app.Run();

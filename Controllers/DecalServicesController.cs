@@ -4,12 +4,14 @@ using DecalXeAPI.Data;
 using DecalXeAPI.Models;
 using DecalXeAPI.DTOs; // Để sử dụng DecalServiceDto
 using AutoMapper; // Để sử dụng AutoMapper
-using System.Collections.Generic; // Để sử dụng IEnumerable
+using System.Collections.Generic;
+using Microsoft.AspNetCore.Authorization; // Để sử dụng IEnumerable
 
 namespace DecalXeAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "Admin,Manager")]
     public class DecalServicesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;

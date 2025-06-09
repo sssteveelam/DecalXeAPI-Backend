@@ -5,11 +5,13 @@ using DecalXeAPI.Models;
 using DecalXeAPI.DTOs; // Để sử dụng CustomerDto
 using AutoMapper; // Để sử dụng AutoMapper
 using System.Collections.Generic; // Để sử dụng IEnumerable
+using Microsoft.AspNetCore.Authorization;
 
 namespace DecalXeAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class CustomersController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -60,6 +62,7 @@ namespace DecalXeAPI.Controllers
 
         // API: POST api/Customers (Vẫn nhận vào Customer Model, trả về CustomerDto)
         [HttpPost]
+        [Authorize(Roles = "Admin,Manager,Sales")] 
         public async Task<ActionResult<CustomerDto>> PostCustomer(Customer customer) // Kiểu trả về là CustomerDto
         {
             if (!string.IsNullOrEmpty(customer.AccountID) && !AccountExists(customer.AccountID))
@@ -85,6 +88,7 @@ namespace DecalXeAPI.Controllers
 
         // PUT và DELETE không thay đổi kiểu trả về là IActionResult
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin,Manager,Sales")] 
         public async Task<IActionResult> PutCustomer(string id, Customer customer)
         {
             if (id != customer.CustomerID)
@@ -119,6 +123,7 @@ namespace DecalXeAPI.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin,Manager")]
         public async Task<IActionResult> DeleteCustomer(string id)
         {
             var customer = await _context.Customers.FindAsync(id);

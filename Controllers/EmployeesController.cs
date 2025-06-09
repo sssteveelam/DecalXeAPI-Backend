@@ -5,11 +5,14 @@ using DecalXeAPI.Models;
 using DecalXeAPI.DTOs; // Để sử dụng EmployeeDto
 using AutoMapper; // Để sử dụng AutoMapper
 using System.Collections.Generic; // Để sử dụng IEnumerable
+using Microsoft.AspNetCore.Authorization;
 
 namespace DecalXeAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
+
     public class EmployeesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -62,6 +65,7 @@ namespace DecalXeAPI.Controllers
 
         // API: POST api/Employees (Vẫn nhận vào Employee Model, trả về EmployeeDto)
         [HttpPost]
+        [Authorize(Roles = "Admin,Manager")]
         public async Task<ActionResult<EmployeeDto>> PostEmployee(Employee employee) // Kiểu trả về là EmployeeDto
         {
             if (!string.IsNullOrEmpty(employee.StoreID) && !StoreExists(employee.StoreID))
@@ -92,6 +96,7 @@ namespace DecalXeAPI.Controllers
 
         // PUT và DELETE không thay đổi kiểu trả về là IActionResult
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin,Manager")]
         public async Task<IActionResult> PutEmployee(string id, Employee employee)
         {
             if (id != employee.EmployeeID)
@@ -130,6 +135,7 @@ namespace DecalXeAPI.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin,Manager")]
         public async Task<IActionResult> DeleteEmployee(string id)
         {
             var employee = await _context.Employees.FindAsync(id);

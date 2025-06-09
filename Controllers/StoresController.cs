@@ -5,11 +5,13 @@ using DecalXeAPI.Models;
 using DecalXeAPI.DTOs; // Thêm dòng này
 using AutoMapper; // Thêm dòng này
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Authorization;
 
 namespace DecalXeAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "Admin,Manager")]
     public class StoresController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
