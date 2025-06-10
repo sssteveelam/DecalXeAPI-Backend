@@ -12,7 +12,7 @@ using System;
 
 namespace DecalXeAPI.Services.Implementations
 {
-    public class DecalTypeService : IDecalTypeService // <-- Kế thừa từ IDecalTypeService
+    public class DecalTypeService : IDecalTypeService
     {
         private readonly ApplicationDbContext _context;
         private readonly IMapper _mapper;
@@ -107,7 +107,6 @@ namespace DecalXeAPI.Services.Implementations
             return true;
         }
 
-        // Hàm kiểm tra tồn tại (PUBLIC cho INTERFACE)
         public async Task<bool> DecalTypeExistsAsync(string id)
         {
             return await _context.DecalTypes.AnyAsync(e => e.DecalTypeID == id);

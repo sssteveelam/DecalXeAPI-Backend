@@ -101,7 +101,7 @@ namespace DecalXeAPI.Controllers
                 _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật sản phẩm: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
             }
-            catch (DbUpdateConcurrencyException)
+            catch (DbUpdateConcurrencyException) // Vẫn bắt riêng lỗi này ở Controller
             {
                 if (!ProductExists(id))
                 {

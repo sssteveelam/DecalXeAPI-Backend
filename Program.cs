@@ -43,7 +43,14 @@ builder.Services.AddScoped<IDecalTypeService, DecalTypeService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
-builder.Services.AddScoped<IRoleService, RoleService>(); 
+builder.Services.AddScoped<IRoleService, RoleService>();
+builder.Services.AddScoped<IPromotionService, PromotionService>();
+builder.Services.AddScoped<IServiceProductService, ServiceProductService>(); // <-- THÊM DÒNG NÀY
+builder.Services.AddScoped<IDecalTemplateService, DecalTemplateService>(); // <-- THÊM DÒNG NÀY
+builder.Services.AddScoped<IServiceDecalTemplateService, ServiceDecalTemplateService>(); // <-- THÊM DÒNG NÀY
+builder.Services.AddScoped<ITimeSlotDefinitionService, TimeSlotDefinitionService>(); // <-- THÊM DÒNG NÀY
+builder.Services.AddScoped<IFeedbackService, FeedbackService>(); // <-- THÊM DÒNG NÀY
+builder.Services.AddScoped<IWarrantyService, WarrantyService>(); // <-- THÊM DÒNG NÀY
 // AddScoped nghĩa là một instance của OrderService sẽ được tạo một lần cho mỗi HTTP request.
 // Đây là lifetime phù hợp cho các services tương tác với DbContext.
 

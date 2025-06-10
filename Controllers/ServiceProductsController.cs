@@ -1,68 +1,69 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using DecalXeAPI.Data;
+using DecalXeAPI.Data; // Vẫn cần DbContext cho các hàm Exists cơ bản
 using DecalXeAPI.Models;
-using DecalXeAPI.DTOs; // Để sử dụng ServiceProductDto
-using AutoMapper; // Để sử dụng AutoMapper
+using DecalXeAPI.DTOs;
+using DecalXeAPI.Services.Interfaces; // <-- THÊM DÒNG NÀY (Để sử dụng IServiceProductService)
+using AutoMapper;
 using System.Collections.Generic;
-using Microsoft.AspNetCore.Authorization; // Để sử dụng IEnumerable
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
+using System; // Để sử dụng ArgumentException
 
 namespace DecalXeAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin,Manager,Inventory")]
+    [Authorize(Roles = "Admin,Manager,Inventory")] // Quyền cho ServiceProductsController
     public class ServiceProductsController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IMapper _mapper; // Khai báo biến IMapper
+        private readonly ApplicationDbContext _context; // Vẫn giữ để dùng các hàm Exists cơ bản
+        private readonly IServiceProductService _serviceProductService; // <-- KHAI BÁO BIẾN CHO SERVICE
+        private readonly IMapper _mapper;
+        private readonly ILogger<ServiceProductsController> _logger;
 
-        public ServiceProductsController(ApplicationDbContext context, IMapper mapper) // Tiêm IMapper
+        public ServiceProductsController(ApplicationDbContext context, IServiceProductService serviceProductService, IMapper mapper, ILogger<ServiceProductsController> logger) // <-- TIÊM IServiceProductService
         {
             _context = context;
+            _serviceProductService = serviceProductService;
             _mapper = mapper;
+            _logger = logger;
         }
 
         // API: GET api/ServiceProducts
-        // Lấy tất cả các ServiceProduct, bao gồm thông tin DecalService và Product liên quan, trả về DTO
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<ServiceProductDto>>> GetServiceProducts() // Kiểu trả về là ServiceProductDto
+        public async Task<ActionResult<IEnumerable<ServiceProductDto>>> GetServiceProducts()
         {
-            var serviceProducts = await _context.ServiceProducts
-                                                .Include(sp => sp.DecalService)
-                                                .Include(sp => sp.Product)
-                                                .ToListAsync();
-            // Sử dụng AutoMapper để ánh xạ từ List<ServiceProduct> sang List<ServiceProductDto>
-            var serviceProductDtos = _mapper.Map<List<ServiceProductDto>>(serviceProducts);
-            return Ok(serviceProductDtos);
+            _logger.LogInformation("Yêu cầu lấy danh sách sản phẩm dịch vụ.");
+            // Ủy quyền logic cho Service Layer
+            var serviceProducts = await _serviceProductService.GetServiceProductsAsync();
+            return Ok(serviceProducts);
         }
 
         // API: GET api/ServiceProducts/{id}
-        // Lấy thông tin một ServiceProduct theo ServiceProductID, bao gồm các thông tin liên quan, trả về DTO
         [HttpGet("{id}")]
-        public async Task<ActionResult<ServiceProductDto>> GetServiceProduct(string id) // Kiểu trả về là ServiceProductDto
+        public async Task<ActionResult<ServiceProductDto>> GetServiceProduct(string id)
         {
-            var serviceProduct = await _context.ServiceProducts
-                                                    .Include(sp => sp.DecalService)
-                                                    .Include(sp => sp.Product)
-                                                    .FirstOrDefaultAsync(sp => sp.ServiceProductID == id);
+            _logger.LogInformation("Yêu cầu lấy sản phẩm dịch vụ với ID: {ServiceProductID}", id);
+            // Ủy quyền logic cho Service Layer
+            var serviceProductDto = await _serviceProductService.GetServiceProductByIdAsync(id);
 
-            if (serviceProduct == null)
+            if (serviceProductDto == null)
             {
+                _logger.LogWarning("Không tìm thấy sản phẩm dịch vụ với ID: {ServiceProductID}", id);
                 return NotFound();
             }
 
-            // Sử dụng AutoMapper để ánh xạ từ ServiceProduct Model sang ServiceProductDto
-            var serviceProductDto = _mapper.Map<ServiceProductDto>(serviceProduct);
             return Ok(serviceProductDto);
         }
 
         // API: POST api/ServiceProducts
-        // Tạo một ServiceProduct mới, nhận vào ServiceProduct Model, trả về ServiceProductDto sau khi tạo
         [HttpPost]
-        public async Task<ActionResult<ServiceProductDto>> PostServiceProduct(ServiceProduct serviceProduct) // Kiểu trả về là ServiceProductDto
+        public async Task<ActionResult<ServiceProductDto>> PostServiceProduct(ServiceProduct serviceProduct) // Vẫn nhận Model
         {
-            // Kiểm tra xem ServiceID và ProductID có tồn tại không
+            _logger.LogInformation("Yêu cầu tạo sản phẩm dịch vụ mới cho ServiceID: {ServiceID}, ProductID: {ProductID}", serviceProduct.ServiceID, serviceProduct.ProductID);
+
+            // --- KIỂM TRA FKs CHÍNH TRƯỚC KHI GỬI VÀO SERVICE ---
             if (!string.IsNullOrEmpty(serviceProduct.ServiceID) && !DecalServiceExists(serviceProduct.ServiceID))
             {
                 return BadRequest("ServiceID không tồn tại.");
@@ -72,27 +73,31 @@ namespace DecalXeAPI.Controllers
                 return BadRequest("ProductID không tồn tại.");
             }
 
-            _context.ServiceProducts.Add(serviceProduct);
-            await _context.SaveChangesAsync();
-
-            // Tải lại thông tin liên quan để AutoMapper có thể ánh xạ đầy đủ
-            await _context.Entry(serviceProduct).Reference(sp => sp.DecalService).LoadAsync();
-            await _context.Entry(serviceProduct).Reference(sp => sp.Product).LoadAsync();
-
-            // Ánh xạ ServiceProduct Model vừa tạo sang ServiceProductDto để trả về
-            var serviceProductDto = _mapper.Map<ServiceProductDto>(serviceProduct);
-            return CreatedAtAction(nameof(GetServiceProduct), new { id = serviceProductDto.ServiceProductID }, serviceProductDto);
+            try
+            {
+                // Ủy quyền logic tạo ServiceProduct cho Service Layer
+                var createdServiceProductDto = await _serviceProductService.CreateServiceProductAsync(serviceProduct);
+                _logger.LogInformation("Đã tạo sản phẩm dịch vụ mới với ID: {ServiceProductID}", createdServiceProductDto.ServiceProductID);
+                return CreatedAtAction(nameof(GetServiceProduct), new { id = createdServiceProductDto.ServiceProductID }, createdServiceProductDto);
+            }
+            catch (ArgumentException ex) // Bắt lỗi từ Service nếu có (ví dụ: duplicate name)
+            {
+                _logger.LogError(ex, "Lỗi nghiệp vụ khi tạo sản phẩm dịch vụ: {ErrorMessage}", ex.Message);
+                return BadRequest(ex.Message);
+            }
         }
 
         // API: PUT api/ServiceProducts/{id}
         [HttpPut("{id}")]
         public async Task<IActionResult> PutServiceProduct(string id, ServiceProduct serviceProduct)
         {
+            _logger.LogInformation("Yêu cầu cập nhật sản phẩm dịch vụ với ID: {ServiceProductID}", id);
             if (id != serviceProduct.ServiceProductID)
             {
                 return BadRequest();
             }
 
+            // Kiểm tra FKs chính
             if (!string.IsNullOrEmpty(serviceProduct.ServiceID) && !DecalServiceExists(serviceProduct.ServiceID))
             {
                 return BadRequest("ServiceID không tồn tại.");
@@ -102,13 +107,26 @@ namespace DecalXeAPI.Controllers
                 return BadRequest("ProductID không tồn tại.");
             }
 
-            _context.Entry(serviceProduct).State = EntityState.Modified;
-
             try
             {
-                await _context.SaveChangesAsync();
+                // Ủy quyền logic cập nhật ServiceProduct cho Service Layer
+                var success = await _serviceProductService.UpdateServiceProductAsync(id, serviceProduct);
+
+                if (!success)
+                {
+                    _logger.LogWarning("Không tìm thấy sản phẩm dịch vụ để cập nhật với ID: {ServiceProductID}", id);
+                    return NotFound();
+                }
+
+                _logger.LogInformation("Đã cập nhật sản phẩm dịch vụ với ID: {ServiceProductID}", id);
+                return NoContent();
             }
-            catch (DbUpdateConcurrencyException)
+            catch (ArgumentException ex)
+            {
+                _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật sản phẩm dịch vụ: {ErrorMessage}", ex.Message);
+                return BadRequest(ex.Message);
+            }
+            catch (DbUpdateConcurrencyException) // Vẫn bắt riêng lỗi này ở Controller
             {
                 if (!ServiceProductExists(id))
                 {
@@ -119,39 +137,28 @@ namespace DecalXeAPI.Controllers
                     throw;
                 }
             }
-
-            return NoContent();
         }
 
         // API: DELETE api/ServiceProducts/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteServiceProduct(string id)
         {
-            var serviceProduct = await _context.ServiceProducts.FindAsync(id);
-            if (serviceProduct == null)
+            _logger.LogInformation("Yêu cầu xóa sản phẩm dịch vụ với ID: {ServiceProductID}", id);
+            // Ủy quyền logic xóa ServiceProduct cho Service Layer
+            var success = await _serviceProductService.DeleteServiceProductAsync(id);
+
+            if (!success)
             {
+                _logger.LogWarning("Không tìm thấy sản phẩm dịch vụ để xóa với ID: {ServiceProductID}", id);
                 return NotFound();
             }
-
-            _context.ServiceProducts.Remove(serviceProduct);
-            await _context.SaveChangesAsync();
 
             return NoContent();
         }
 
-        private bool ServiceProductExists(string id)
-        {
-            return _context.ServiceProducts.Any(e => e.ServiceProductID == id);
-        }
-
-        private bool DecalServiceExists(string id)
-        {
-            return _context.DecalServices.Any(e => e.ServiceID == id);
-        }
-
-        private bool ProductExists(string id)
-        {
-            return _context.Products.Any(e => e.ProductID == id);
-        }
+        // --- HÀM HỖ TRỢ (PRIVATE): KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (Vẫn giữ ở Controller để kiểm tra FKs) ---
+        private bool ServiceProductExists(string id) { return _context.ServiceProducts.Any(e => e.ServiceProductID == id); }
+        private bool DecalServiceExists(string id) { return _context.DecalServices.Any(e => e.ServiceID == id); }
+        private bool ProductExists(string id) { return _context.Products.Any(e => e.ProductID == id); }
     }
 }

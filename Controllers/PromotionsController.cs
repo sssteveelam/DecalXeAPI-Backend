@@ -2,85 +2,104 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DecalXeAPI.Data;
 using DecalXeAPI.Models;
-using DecalXeAPI.DTOs; // Để sử dụng PromotionDto
-using AutoMapper; // Để sử dụng AutoMapper
-using System.Collections.Generic; // Để sử dụng IEnumerable
+using DecalXeAPI.DTOs;
+using DecalXeAPI.Services.Interfaces; // <-- THÊM DÒNG NÀY (Để sử dụng IPromotionService)
+using AutoMapper;
+using System.Collections.Generic;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
 using System;
-using Microsoft.AspNetCore.Authorization; // Để sử dụng DateTime
 
 namespace DecalXeAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin,Manager,Sales")]
+    [Authorize(Roles = "Admin,Manager,Sales")] // Quyền cho PromotionsController
     public class PromotionsController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IMapper _mapper; // Khai báo biến IMapper
+        private readonly ApplicationDbContext _context; // Vẫn giữ để dùng các hàm Exists cơ bản
+        private readonly IPromotionService _promotionService; // <-- KHAI BÁO BIẾN CHO SERVICE
+        private readonly IMapper _mapper;
+        private readonly ILogger<PromotionsController> _logger;
 
-        public PromotionsController(ApplicationDbContext context, IMapper mapper) // Tiêm IMapper
+        public PromotionsController(ApplicationDbContext context, IPromotionService promotionService, IMapper mapper, ILogger<PromotionsController> logger) // <-- TIÊM IPromotionService
         {
             _context = context;
+            _promotionService = promotionService;
             _mapper = mapper;
+            _logger = logger;
         }
 
         // API: GET api/Promotions
-        // Lấy tất cả các Promotion, trả về dưới dạng PromotionDto
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<PromotionDto>>> GetPromotions() // Kiểu trả về là PromotionDto
+        public async Task<ActionResult<IEnumerable<PromotionDto>>> GetPromotions()
         {
-            var promotions = await _context.Promotions.ToListAsync();
-            // Sử dụng AutoMapper để ánh xạ từ List<Promotion> sang List<PromotionDto>
-            var promotionDtos = _mapper.Map<List<PromotionDto>>(promotions);
-            return Ok(promotionDtos);
+            _logger.LogInformation("Yêu cầu lấy danh sách khuyến mãi.");
+            var promotions = await _promotionService.GetPromotionsAsync();
+            return Ok(promotions);
         }
 
         // API: GET api/Promotions/{id}
-        // Lấy thông tin một Promotion theo PromotionID, trả về dưới dạng PromotionDto
         [HttpGet("{id}")]
-        public async Task<ActionResult<PromotionDto>> GetPromotion(string id) // Kiểu trả về là PromotionDto
+        public async Task<ActionResult<PromotionDto>> GetPromotion(string id)
         {
-            var promotion = await _context.Promotions.FindAsync(id);
+            _logger.LogInformation("Yêu cầu lấy khuyến mãi với ID: {PromotionID}", id);
+            var promotionDto = await _promotionService.GetPromotionByIdAsync(id);
 
-            if (promotion == null)
+            if (promotionDto == null)
             {
+                _logger.LogWarning("Không tìm thấy khuyến mãi với ID: {PromotionID}", id);
                 return NotFound();
             }
 
-            // Sử dụng AutoMapper để ánh xạ từ Promotion Model sang PromotionDto
-            var promotionDto = _mapper.Map<PromotionDto>(promotion);
             return Ok(promotionDto);
         }
 
         // API: POST api/Promotions
-        // Tạo một Promotion mới, nhận vào Promotion Model, trả về PromotionDto sau khi tạo
         [HttpPost]
-        public async Task<ActionResult<PromotionDto>> PostPromotion(Promotion promotion) // Kiểu trả về là PromotionDto
+        public async Task<ActionResult<PromotionDto>> PostPromotion(Promotion promotion) // Vẫn nhận Model
         {
-            _context.Promotions.Add(promotion);
-            await _context.SaveChangesAsync();
-
-            // Không cần LoadAsync() vì PromotionDto không có Navigation Property cần tải
-
-            // Ánh xạ Promotion Model vừa tạo sang PromotionDto để trả về
-            var promotionDto = _mapper.Map<PromotionDto>(promotion);
-            return CreatedAtAction(nameof(GetPromotion), new { id = promotionDto.PromotionID }, promotionDto);
+            _logger.LogInformation("Yêu cầu tạo khuyến mãi mới: {PromotionName}", promotion.PromotionName);
+            try
+            {
+                var createdPromotionDto = await _promotionService.CreatePromotionAsync(promotion);
+                _logger.LogInformation("Đã tạo khuyến mãi mới với ID: {PromotionID}", createdPromotionDto.PromotionID);
+                return CreatedAtAction(nameof(GetPromotion), new { id = createdPromotionDto.PromotionID }, createdPromotionDto);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogError(ex, "Lỗi nghiệp vụ khi tạo khuyến mãi: {ErrorMessage}", ex.Message);
+                return BadRequest(ex.Message);
+            }
         }
 
         // API: PUT api/Promotions/{id}
         [HttpPut("{id}")]
         public async Task<IActionResult> PutPromotion(string id, Promotion promotion)
         {
+            _logger.LogInformation("Yêu cầu cập nhật khuyến mãi với ID: {PromotionID}", id);
             if (id != promotion.PromotionID)
             {
                 return BadRequest();
             }
 
-            _context.Entry(promotion).State = EntityState.Modified;
-
             try
             {
-                await _context.SaveChangesAsync();
+                var success = await _promotionService.UpdatePromotionAsync(id, promotion);
+
+                if (!success)
+                {
+                    _logger.LogWarning("Không tìm thấy khuyến mãi để cập nhật với ID: {PromotionID}", id);
+                    return NotFound();
+                }
+
+                _logger.LogInformation("Đã cập nhật khuyến mãi với ID: {PromotionID}", id);
+                return NoContent();
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật khuyến mãi: {ErrorMessage}", ex.Message);
+                return BadRequest(ex.Message);
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -93,29 +112,25 @@ namespace DecalXeAPI.Controllers
                     throw;
                 }
             }
-
-            return NoContent();
         }
 
         // API: DELETE api/Promotions/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeletePromotion(string id)
         {
-            var promotion = await _context.Promotions.FindAsync(id);
-            if (promotion == null)
+            _logger.LogInformation("Yêu cầu xóa khuyến mãi với ID: {PromotionID}", id);
+            var success = await _promotionService.DeletePromotionAsync(id);
+
+            if (!success)
             {
+                _logger.LogWarning("Không tìm thấy khuyến mãi để xóa với ID: {PromotionID}", id);
                 return NotFound();
             }
-
-            _context.Promotions.Remove(promotion);
-            await _context.SaveChangesAsync();
 
             return NoContent();
         }
 
-        private bool PromotionExists(string id)
-        {
-            return _context.Promotions.Any(e => e.PromotionID == id);
-        }
+        // --- HÀM HỖ TRỢ (PRIVATE): KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (Vẫn giữ ở Controller để kiểm tra FKs) ---
+        private bool PromotionExists(string id) { return _context.Promotions.Any(e => e.PromotionID == id); }
     }
 }

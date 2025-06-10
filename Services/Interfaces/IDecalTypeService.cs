@@ -12,8 +12,6 @@ namespace DecalXeAPI.Services.Interfaces
         Task<DecalTypeDto> CreateDecalTypeAsync(DecalType decalType);
         Task<bool> UpdateDecalTypeAsync(string id, DecalType decalType);
         Task<bool> DeleteDecalTypeAsync(string id);
-
-        // Hàm kiểm tra tồn tại (Exists) cần thiết cho Service này
         Task<bool> DecalTypeExistsAsync(string id);
     }
 }

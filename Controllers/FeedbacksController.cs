@@ -2,68 +2,76 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DecalXeAPI.Data;
 using DecalXeAPI.Models;
-using DecalXeAPI.DTOs; // Để sử dụng FeedbackDto
-using AutoMapper; // Để sử dụng AutoMapper
-using System.Collections.Generic; // Để sử dụng IEnumerable
-using System;
-using Microsoft.AspNetCore.Authorization; // Để sử dụng DateTime
+using DecalXeAPI.DTOs;
+using DecalXeAPI.Services.Interfaces; // <-- THÊM DÒNG NÀY (Để sử dụng IFeedbackService)
+using AutoMapper;
+using System.Collections.Generic;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
+using System; // Để sử dụng ArgumentException
 
 namespace DecalXeAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    [Authorize] // Quyền cho FeedbacksController
     public class FeedbacksController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IMapper _mapper; // Khai báo biến IMapper
+        private readonly ApplicationDbContext _context; // Vẫn giữ để dùng các hàm Exists cơ bản
+        private readonly IFeedbackService _feedbackService; // <-- KHAI BÁO BIẾN CHO SERVICE
+        private readonly IMapper _mapper;
+        private readonly ILogger<FeedbacksController> _logger;
 
-        public FeedbacksController(ApplicationDbContext context, IMapper mapper) // Tiêm IMapper
+        public FeedbacksController(ApplicationDbContext context, IFeedbackService feedbackService, IMapper mapper, ILogger<FeedbacksController> logger) // <-- TIÊM IFeedbackService
         {
             _context = context;
+            _feedbackService = feedbackService;
             _mapper = mapper;
+            _logger = logger;
         }
 
         // API: GET api/Feedbacks
-        // Lấy tất cả các Feedback, bao gồm thông tin Order và Customer liên quan, trả về DTO
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<FeedbackDto>>> GetFeedbacks() // Kiểu trả về là FeedbackDto
+        [Authorize(Roles = "Admin,Manager,Sales,Customer")] // Admin, Manager, Sales xem tất cả. Customer xem feedback của mình.
+        public async Task<ActionResult<IEnumerable<FeedbackDto>>> GetFeedbacks()
         {
-            var feedbacks = await _context.Feedbacks
-                                        .Include(f => f.Order) // Tải thông tin Order
-                                        .Include(f => f.Customer) // Tải thông tin Customer
-                                        .ToListAsync();
-            // Sử dụng AutoMapper để ánh xạ từ List<Feedback> sang List<FeedbackDto>
-            var feedbackDtos = _mapper.Map<List<FeedbackDto>>(feedbacks);
-            return Ok(feedbackDtos);
+            _logger.LogInformation("Yêu cầu lấy danh sách phản hồi.");
+            var feedbacks = await _feedbackService.GetFeedbacksAsync();
+            return Ok(feedbacks);
         }
 
         // API: GET api/Feedbacks/{id}
-        // Lấy thông tin một Feedback theo FeedbackID, bao gồm các thông tin liên quan, trả về DTO
         [HttpGet("{id}")]
-        public async Task<ActionResult<FeedbackDto>> GetFeedback(string id) // Kiểu trả về là FeedbackDto
+        [Authorize(Roles = "Admin,Manager,Sales,Customer")] // Admin, Manager, Sales xem tất cả. Customer xem feedback của mình.
+        public async Task<ActionResult<FeedbackDto>> GetFeedback(string id)
         {
-            var feedback = await _context.Feedbacks
-                                        .Include(f => f.Order)
-                                        .Include(f => f.Customer)
-                                        .FirstOrDefaultAsync(f => f.FeedbackID == id);
+            _logger.LogInformation("Yêu cầu lấy phản hồi với ID: {FeedbackID}", id);
+            var feedbackDto = await _feedbackService.GetFeedbackByIdAsync(id);
 
-            if (feedback == null)
+            if (feedbackDto == null)
             {
+                _logger.LogWarning("Không tìm thấy phản hồi với ID: {FeedbackID}", id);
                 return NotFound();
             }
 
-            // Sử dụng AutoMapper để ánh xạ từ Feedback Model sang FeedbackDto
-            var feedbackDto = _mapper.Map<FeedbackDto>(feedback);
+            // Logic: Customer chỉ xem được feedback của chính mình (nếu muốn)
+            // var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            // if (User.IsInRole("Customer") && feedbackDto.CustomerID != currentUserId)
+            // {
+            //     return Forbid(); // Trả về 403 Forbidden nếu Customer cố gắng xem feedback của người khác
+            // }
+
             return Ok(feedbackDto);
         }
 
         // API: POST api/Feedbacks
-        // Tạo một Feedback mới, nhận vào Feedback Model, trả về FeedbackDto sau khi tạo
         [HttpPost]
-        public async Task<ActionResult<FeedbackDto>> PostFeedback(Feedback feedback) // Kiểu trả về là FeedbackDto
+        [Authorize(Roles = "Customer")] // Chỉ Customer được phép gửi feedback
+        public async Task<ActionResult<FeedbackDto>> PostFeedback(Feedback feedback) // Vẫn nhận Model
         {
-            // Kiểm tra FKs có tồn tại không
+            _logger.LogInformation("Yêu cầu tạo phản hồi mới cho OrderID: {OrderID}, CustomerID: {CustomerID}", feedback.OrderID, feedback.CustomerID);
+
+            // --- KIỂM TRA FKs CHÍNH TRƯỚC KHI GỬI VÀO SERVICE ---
             if (!string.IsNullOrEmpty(feedback.OrderID) && !OrderExists(feedback.OrderID))
             {
                 return BadRequest("OrderID không tồn tại.");
@@ -73,27 +81,39 @@ namespace DecalXeAPI.Controllers
                 return BadRequest("CustomerID không tồn tại.");
             }
 
-            _context.Feedbacks.Add(feedback);
-            await _context.SaveChangesAsync();
+            // Logic: Đảm bảo Customer chỉ gửi feedback cho chính mình (nếu muốn)
+            // var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            // if (User.IsInRole("Customer") && feedback.CustomerID != currentUserId)
+            // {
+            //     return Forbid("Bạn chỉ có thể gửi phản hồi cho chính mình.");
+            // }
 
-            // Tải lại thông tin liên quan để AutoMapper có thể ánh xạ đầy đủ
-            await _context.Entry(feedback).Reference(f => f.Order).LoadAsync();
-            await _context.Entry(feedback).Reference(f => f.Customer).LoadAsync();
 
-            // Ánh xạ Feedback Model vừa tạo sang FeedbackDto để trả về
-            var feedbackDto = _mapper.Map<FeedbackDto>(feedback);
-            return CreatedAtAction(nameof(GetFeedback), new { id = feedbackDto.FeedbackID }, feedbackDto);
+            try
+            {
+                var createdFeedbackDto = await _feedbackService.CreateFeedbackAsync(feedback);
+                _logger.LogInformation("Đã tạo phản hồi mới với ID: {FeedbackID}", createdFeedbackDto.FeedbackID);
+                return CreatedAtAction(nameof(GetFeedback), new { id = createdFeedbackDto.FeedbackID }, createdFeedbackDto);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogError(ex, "Lỗi nghiệp vụ khi tạo phản hồi: {ErrorMessage}", ex.Message);
+                return BadRequest(ex.Message);
+            }
         }
 
         // API: PUT api/Feedbacks/{id}
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin,Manager")] // Chỉ Admin, Manager có thể cập nhật
         public async Task<IActionResult> PutFeedback(string id, Feedback feedback)
         {
+            _logger.LogInformation("Yêu cầu cập nhật phản hồi với ID: {FeedbackID}", id);
             if (id != feedback.FeedbackID)
             {
                 return BadRequest();
             }
 
+            // Kiểm tra FKs chính
             if (!string.IsNullOrEmpty(feedback.OrderID) && !OrderExists(feedback.OrderID))
             {
                 return BadRequest("OrderID không tồn tại.");
@@ -103,11 +123,23 @@ namespace DecalXeAPI.Controllers
                 return BadRequest("CustomerID không tồn tại.");
             }
 
-            _context.Entry(feedback).State = EntityState.Modified;
-
             try
             {
-                await _context.SaveChangesAsync();
+                var success = await _feedbackService.UpdateFeedbackAsync(id, feedback);
+
+                if (!success)
+                {
+                    _logger.LogWarning("Không tìm thấy phản hồi để cập nhật với ID: {FeedbackID}", id);
+                    return NotFound();
+                }
+
+                _logger.LogInformation("Đã cập nhật phản hồi với ID: {FeedbackID}", id);
+                return NoContent();
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật phản hồi: {ErrorMessage}", ex.Message);
+                return BadRequest(ex.Message);
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -120,39 +152,28 @@ namespace DecalXeAPI.Controllers
                     throw;
                 }
             }
-
-            return NoContent();
         }
 
         // API: DELETE api/Feedbacks/{id}
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin,Manager")] // Chỉ Admin, Manager có thể xóa
         public async Task<IActionResult> DeleteFeedback(string id)
         {
-            var feedback = await _context.Feedbacks.FindAsync(id);
-            if (feedback == null)
+            _logger.LogInformation("Yêu cầu xóa phản hồi với ID: {FeedbackID}", id);
+            var success = await _feedbackService.DeleteFeedbackAsync(id);
+
+            if (!success)
             {
+                _logger.LogWarning("Không tìm thấy phản hồi để xóa với ID: {FeedbackID}", id);
                 return NotFound();
             }
-
-            _context.Feedbacks.Remove(feedback);
-            await _context.SaveChangesAsync();
 
             return NoContent();
         }
 
-        private bool FeedbackExists(string id)
-        {
-            return _context.Feedbacks.Any(e => e.FeedbackID == id);
-        }
-
-        private bool OrderExists(string id)
-        {
-            return _context.Orders.Any(e => e.OrderID == id);
-        }
-
-        private bool CustomerExists(string id)
-        {
-            return _context.Customers.Any(e => e.CustomerID == id);
-        }
+        // --- HÀM HỖ TRỢ (PRIVATE): KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (Vẫn giữ ở Controller để kiểm tra FKs) ---
+        private bool FeedbackExists(string id) { return _context.Feedbacks.Any(e => e.FeedbackID == id); }
+        private bool OrderExists(string id) { return _context.Orders.Any(e => e.OrderID == id); }
+        private bool CustomerExists(string id) { return _context.Customers.Any(e => e.CustomerID == id); }
     }
 }

@@ -35,7 +35,6 @@ namespace DecalXeAPI.Controllers
         public async Task<ActionResult<IEnumerable<DecalTypeDto>>> GetDecalTypes()
         {
             _logger.LogInformation("Yêu cầu lấy danh sách loại decal.");
-            // Ủy quyền logic cho Service Layer
             var decalTypes = await _decalTypeService.GetDecalTypesAsync();
             return Ok(decalTypes);
         }
@@ -45,7 +44,6 @@ namespace DecalXeAPI.Controllers
         public async Task<ActionResult<DecalTypeDto>> GetDecalType(string id)
         {
             _logger.LogInformation("Yêu cầu lấy loại decal với ID: {DecalTypeID}", id);
-            // Ủy quyền logic cho Service Layer
             var decalTypeDto = await _decalTypeService.GetDecalTypeByIdAsync(id);
 
             if (decalTypeDto == null)
@@ -64,12 +62,11 @@ namespace DecalXeAPI.Controllers
             _logger.LogInformation("Yêu cầu tạo loại decal mới: {DecalTypeName}", decalType.DecalTypeName);
             try
             {
-                // Ủy quyền logic tạo DecalType cho Service Layer
                 var createdDecalTypeDto = await _decalTypeService.CreateDecalTypeAsync(decalType);
                 _logger.LogInformation("Đã tạo loại decal mới với ID: {DecalTypeID}", createdDecalTypeDto.DecalTypeID);
                 return CreatedAtAction(nameof(GetDecalType), new { id = createdDecalTypeDto.DecalTypeID }, createdDecalTypeDto);
             }
-            catch (ArgumentException ex) // Bắt lỗi từ Service nếu có
+            catch (ArgumentException ex)
             {
                 _logger.LogError(ex, "Lỗi nghiệp vụ khi tạo loại decal: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
@@ -88,7 +85,6 @@ namespace DecalXeAPI.Controllers
 
             try
             {
-                // Ủy quyền logic cập nhật DecalType cho Service Layer
                 var success = await _decalTypeService.UpdateDecalTypeAsync(id, decalType);
 
                 if (!success)
@@ -105,7 +101,7 @@ namespace DecalXeAPI.Controllers
                 _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật loại decal: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
             }
-            catch (DbUpdateConcurrencyException) // Vẫn bắt riêng lỗi này ở Controller
+            catch (DbUpdateConcurrencyException)
             {
                 if (!DecalTypeExists(id))
                 {
