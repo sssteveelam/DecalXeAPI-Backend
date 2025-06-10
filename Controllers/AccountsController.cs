@@ -1,108 +1,123 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using DecalXeAPI.Data;
+using Microsoft.EntityFrameworkCore; // Vẫn cần DbContext cho các hàm Exists cơ bản
+using DecalXeAPI.Data; // Vẫn cần ApplicationDbContext cho các hàm Exists
 using DecalXeAPI.Models;
-using DecalXeAPI.DTOs; // Để sử dụng AccountDto
-using AutoMapper; // <-- THÊM DÒNG NÀY ĐỂ SỬ DỤNG AUTOMAPPER
+using DecalXeAPI.DTOs;
+using DecalXeAPI.Services.Interfaces; // <-- THÊM DÒNG NÀY (Để sử dụng IAccountService)
+using AutoMapper;
+using System.Collections.Generic;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
+using System; // Để sử dụng ArgumentException
 
 namespace DecalXeAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin")]    
+    [Authorize(Roles = "Admin,Manager")]
     public class AccountsController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IMapper _mapper; // Khai báo biến IMapper để sử dụng AutoMapper
+        private readonly ApplicationDbContext _context; // Vẫn giữ để dùng các hàm Exists cơ bản
+        private readonly IAccountService _accountService; // <-- KHAI BÁO BIẾN CHO SERVICE
+        private readonly IMapper _mapper;
+        private readonly ILogger<AccountsController> _logger;
 
-        // Constructor: Hàm khởi tạo của Controller, ASP.NET Core sẽ tự động "tiêm" (inject) DbContext và IMapper vào đây.
-        public AccountsController(ApplicationDbContext context, IMapper mapper)
+        public AccountsController(ApplicationDbContext context, IAccountService accountService, IMapper mapper, ILogger<AccountsController> logger) // <-- TIÊM IAccountService
         {
             _context = context;
-            _mapper = mapper; // Gán giá trị IMapper được tiêm vào
+            _accountService = accountService;
+            _mapper = mapper;
+            _logger = logger;
         }
 
         // API: GET api/Accounts
-        // Lấy tất cả các Account, trả về dưới dạng AccountDto
         [HttpGet]
         public async Task<ActionResult<IEnumerable<AccountDto>>> GetAccounts()
         {
-            var accounts = await _context.Accounts.Include(a => a.Role).ToListAsync();
-
-            // Ánh xạ TỰ ĐỘNG từ List<Account> sang List<AccountDto> bằng AutoMapper
-            var accountDtos = _mapper.Map<List<AccountDto>>(accounts);
-
-            return Ok(accountDtos);
+            _logger.LogInformation("Yêu cầu lấy danh sách tài khoản.");
+            var accounts = await _accountService.GetAccountsAsync();
+            return Ok(accounts);
         }
 
         // API: GET api/Accounts/{id}
-        // Lấy thông tin một Account theo AccountID, trả về dưới dạng AccountDto
         [HttpGet("{id}")]
         public async Task<ActionResult<AccountDto>> GetAccount(string id)
         {
-            var account = await _context.Accounts.Include(a => a.Role).FirstOrDefaultAsync(a => a.AccountID == id);
+            _logger.LogInformation("Yêu cầu lấy tài khoản với ID: {AccountID}", id);
+            var accountDto = await _accountService.GetAccountByIdAsync(id);
 
-            if (account == null)
+            if (accountDto == null)
             {
+                _logger.LogWarning("Không tìm thấy tài khoản với ID: {AccountID}", id);
                 return NotFound();
             }
-
-            // Ánh xạ TỰ ĐỘNG từ Account Model sang AccountDto bằng AutoMapper
-            var accountDto = _mapper.Map<AccountDto>(account);
 
             return Ok(accountDto);
         }
 
         // API: POST api/Accounts
-        // Tạo một Account mới, nhận vào Account Model, trả về AccountDto sau khi tạo
         [HttpPost]
-        public async Task<ActionResult<AccountDto>> PostAccount(Account account)
+        public async Task<ActionResult<AccountDto>> PostAccount(Account account) // Vẫn nhận Account Model
         {
-            // Kiểm tra xem RoleID có tồn tại không
+            _logger.LogInformation("Yêu cầu tạo tài khoản mới: {Username}", account.Username);
+
+            // --- KIỂM TRA FKs CHÍNH TRƯỚC KHI GỬI VÀO SERVICE ---
+            // Controller sẽ chịu trách nhiệm validate các FKs chính
             if (!string.IsNullOrEmpty(account.RoleID) && !RoleExists(account.RoleID))
             {
                 return BadRequest("RoleID không tồn tại.");
             }
 
-            _context.Accounts.Add(account);
-            await _context.SaveChangesAsync();
-
-            // Tải lại thông tin Role để có RoleName cho DTO
-            // AutoMapper sẽ cần thông tin Role đã được tải để có thể ánh xạ RoleName
-            await _context.Entry(account).Reference(a => a.Role).LoadAsync();
-
-            // Ánh xạ TỰ ĐỘNG Account Model vừa tạo sang AccountDto để trả về
-            var accountDto = _mapper.Map<AccountDto>(account);
-
-            // Trả về 201 Created và thông tin của AccountDto vừa tạo
-            return CreatedAtAction(nameof(GetAccount), new { id = accountDto.AccountID }, accountDto);
+            try
+            {
+                var createdAccountDto = await _accountService.CreateAccountAsync(account);
+                _logger.LogInformation("Đã tạo tài khoản mới với ID: {AccountID}", createdAccountDto.AccountID);
+                return CreatedAtAction(nameof(GetAccount), new { id = createdAccountDto.AccountID }, createdAccountDto);
+            }
+            catch (ArgumentException ex) // Bắt lỗi từ Service nếu có (ví dụ: username đã tồn tại)
+            {
+                _logger.LogError(ex, "Lỗi nghiệp vụ khi tạo tài khoản: {ErrorMessage}", ex.Message);
+                return BadRequest(ex.Message);
+            }
         }
 
         // API: PUT api/Accounts/{id}
-        // Cập nhật thông tin một Account hiện có, vẫn nhận vào Account Model
         [HttpPut("{id}")]
         public async Task<IActionResult> PutAccount(string id, Account account)
         {
+            _logger.LogInformation("Yêu cầu cập nhật tài khoản với ID: {AccountID}", id);
             if (id != account.AccountID)
             {
                 return BadRequest();
             }
 
+            // Kiểm tra FKs chính
             if (!string.IsNullOrEmpty(account.RoleID) && !RoleExists(account.RoleID))
             {
                 return BadRequest("RoleID không tồn tại.");
             }
 
-            _context.Entry(account).State = EntityState.Modified;
-
             try
             {
-                await _context.SaveChangesAsync();
+                var success = await _accountService.UpdateAccountAsync(id, account);
+
+                if (!success)
+                {
+                    _logger.LogWarning("Không tìm thấy tài khoản để cập nhật với ID: {AccountID}", id);
+                    return NotFound();
+                }
+
+                _logger.LogInformation("Đã cập nhật tài khoản với ID: {AccountID}", id);
+                return NoContent();
             }
-            catch (DbUpdateConcurrencyException)
+            catch (ArgumentException ex) // Bắt lỗi từ Service nếu có (ví dụ: username trùng lặp)
             {
-                if (!AccountExists(id))
+                _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật tài khoản: {ErrorMessage}", ex.Message);
+                return BadRequest(ex.Message);
+            }
+            catch (DbUpdateConcurrencyException) // Vẫn bắt riêng lỗi này ở Controller
+            {
+                if (!AccountExists(id)) // Vẫn dùng hàm hỗ trợ của Controller để kiểm tra tồn tại
                 {
                     return NotFound();
                 }
@@ -111,34 +126,29 @@ namespace DecalXeAPI.Controllers
                     throw;
                 }
             }
-
-            return NoContent();
         }
 
         // API: DELETE api/Accounts/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteAccount(string id)
         {
-            var account = await _context.Accounts.FindAsync(id);
-            if (account == null)
+            _logger.LogInformation("Yêu cầu xóa tài khoản với ID: {AccountID}", id);
+            var success = await _accountService.DeleteAccountAsync(id);
+
+            if (!success)
             {
+                _logger.LogWarning("Không tìm thấy tài khoản để xóa với ID: {AccountID}", id);
                 return NotFound();
             }
-
-            _context.Accounts.Remove(account);
-            await _context.SaveChangesAsync();
 
             return NoContent();
         }
 
-        private bool AccountExists(string id)
-        {
-            return _context.Accounts.Any(e => e.AccountID == id);
-        }
-
-        private bool RoleExists(string id)
-        {
-            return _context.Roles.Any(e => e.RoleID == id);
-        }
+        // --- HÀM HỖ TRỢ (PRIVATE): KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (Vẫn giữ ở Controller để kiểm tra FKs) ---
+        // Các hàm Exists này vẫn cần thiết nếu Controller thực hiện kiểm tra FKs trước khi gọi Service,
+        // hoặc nếu Service trả về lỗi chung và Controller cần biết lỗi cụ thể để trả về NotFound.
+        // Có thể bỏ đi nếu Service xử lý tất cả lỗi chi tiết và Controller chỉ cần trả về BadRequest/NotFound chung.
+        private bool AccountExists(string id) { return _context.Accounts.Any(e => e.AccountID == id); }
+        private bool RoleExists(string id) { return _context.Roles.Any(e => e.RoleID == id); }
     }
 }

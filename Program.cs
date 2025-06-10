@@ -6,6 +6,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models; // Cần cho cấu hình Swagger
 using System.Text;
+using DecalXeAPI.Services.Interfaces;
+using DecalXeAPI.Services.Implementations;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +28,24 @@ builder.Services.AddAutoMapper(typeof(MainMappingProfile).Assembly);
 
 // 3. Thêm Controllers (cho các API Controller truyền thống)
 builder.Services.AddControllers();
+
+
+// Đăng ký Service Layer
+builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IOrderDetailService, OrderDetailService>();
+builder.Services.AddScoped<ICustomServiceRequestService, CustomServiceRequestService>();
+builder.Services.AddScoped<IDesignService, DesignService>();
+builder.Services.AddScoped<ITechnicianDailyScheduleService, TechnicianDailyScheduleService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IStoreService, StoreService>();
+builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IDecalTypeService, DecalTypeService>();
+builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<ICustomerService, CustomerService>();
+builder.Services.AddScoped<IEmployeeService, EmployeeService>();
+builder.Services.AddScoped<IRoleService, RoleService>(); 
+// AddScoped nghĩa là một instance của OrderService sẽ được tạo một lần cho mỗi HTTP request.
+// Đây là lifetime phù hợp cho các services tương tác với DbContext.
 
 // 4. Cấu hình Swagger/OpenAPI (để tạo tài liệu API tự động và giao diện test API)
 builder.Services.AddEndpointsApiExplorer(); // Cần thiết cho Swagger để khám phá các endpoint
@@ -73,7 +94,7 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true, // Xác minh khóa ký token
         ValidIssuer = builder.Configuration["Jwt:Issuer"], // Lấy Issuer từ appsettings.json
         ValidAudience = builder.Configuration["Jwt:Audience"], // Lấy Audience từ appsettings.json
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])) // Lấy khóa bí mật từ appsettings.json
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key không được cấu hình.")))
     };
 });
 

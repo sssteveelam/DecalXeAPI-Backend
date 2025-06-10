@@ -103,8 +103,7 @@ namespace DecalXeAPI.Controllers
         private string GenerateJwtToken(Account account)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]); // Lấy khóa bí mật từ appsettings.json
-
+            var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key không được cấu hình."));
             // Định nghĩa các Claims (thông tin về người dùng trong token)
             var claims = new List<Claim>
             {

@@ -1,11 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore; // Để dùng .Include()
-using DecalXeAPI.Data;
+using Microsoft.EntityFrameworkCore; // Vẫn cần DbContext cho các hàm Exists cơ bản
+using DecalXeAPI.Data; // Vẫn cần ApplicationDbContext cho các hàm Exists
 using DecalXeAPI.Models;
-using DecalXeAPI.DTOs; // Để sử dụng CustomerDto
-using AutoMapper; // Để sử dụng AutoMapper
-using System.Collections.Generic; // Để sử dụng IEnumerable
+using DecalXeAPI.DTOs;
+using DecalXeAPI.Services.Interfaces; // <-- THÊM DÒNG NÀY (Để sử dụng ICustomerService)
+using AutoMapper;
+using System.Collections.Generic;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
+using System; // Để sử dụng ArgumentException
 
 namespace DecalXeAPI.Controllers
 {
@@ -14,98 +17,106 @@ namespace DecalXeAPI.Controllers
     [Authorize]
     public class CustomersController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IMapper _mapper; // Khai báo biến IMapper
+        private readonly ApplicationDbContext _context; // Vẫn giữ để dùng các hàm Exists cơ bản
+        private readonly ICustomerService _customerService; // <-- KHAI BÁO BIẾN CHO SERVICE
+        private readonly IMapper _mapper;
+        private readonly ILogger<CustomersController> _logger;
 
-        public CustomersController(ApplicationDbContext context, IMapper mapper) // Tiêm IMapper
+        public CustomersController(ApplicationDbContext context, ICustomerService customerService, IMapper mapper, ILogger<CustomersController> logger) // <-- TIÊM ICustomerService
         {
             _context = context;
+            _customerService = customerService;
             _mapper = mapper;
+            _logger = logger;
         }
 
         // API: GET api/Customers
-        // Lấy tất cả các Customer, trả về dưới dạng CustomerDto
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<CustomerDto>>> GetCustomers() // Kiểu trả về là CustomerDto
+        [Authorize(Roles = "Admin,Manager,Sales,Technician,Customer")] // Nới lỏng quyền cho GET
+        public async Task<ActionResult<IEnumerable<CustomerDto>>> GetCustomers()
         {
-            var customers = await _context.Customers
-                                        .Include(c => c.Account)
-                                            .ThenInclude(a => a.Role) // Tải thông tin Role của Account
-                                        .ToListAsync();
-
-            // Sử dụng AutoMapper để ánh xạ từ List<Customer> sang List<CustomerDto>
-            var customerDtos = _mapper.Map<List<CustomerDto>>(customers);
-
-            return Ok(customerDtos);
+            _logger.LogInformation("Yêu cầu lấy danh sách khách hàng.");
+            var customers = await _customerService.GetCustomersAsync();
+            return Ok(customers);
         }
 
         // API: GET api/Customers/{id}
-        // Lấy thông tin một Customer theo CustomerID, trả về dưới dạng CustomerDto
         [HttpGet("{id}")]
-        public async Task<ActionResult<CustomerDto>> GetCustomer(string id) // Kiểu trả về là CustomerDto
+        [Authorize(Roles = "Admin,Manager,Sales,Technician,Customer")] // Nới lỏng quyền cho GET by ID
+        public async Task<ActionResult<CustomerDto>> GetCustomer(string id)
         {
-            var customer = await _context.Customers
-                                        .Include(c => c.Account)
-                                            .ThenInclude(a => a.Role)
-                                        .FirstOrDefaultAsync(c => c.CustomerID == id);
+            _logger.LogInformation("Yêu cầu lấy khách hàng với ID: {CustomerID}", id);
+            var customerDto = await _customerService.GetCustomerByIdAsync(id);
 
-            if (customer == null)
+            if (customerDto == null)
             {
+                _logger.LogWarning("Không tìm thấy khách hàng với ID: {CustomerID}", id);
                 return NotFound();
             }
-
-            // Sử dụng AutoMapper để ánh xạ từ Customer Model sang CustomerDto
-            var customerDto = _mapper.Map<CustomerDto>(customer);
 
             return Ok(customerDto);
         }
 
-        // API: POST api/Customers (Vẫn nhận vào Customer Model, trả về CustomerDto)
+        // API: POST api/Customers
         [HttpPost]
-        [Authorize(Roles = "Admin,Manager,Sales")] 
-        public async Task<ActionResult<CustomerDto>> PostCustomer(Customer customer) // Kiểu trả về là CustomerDto
+        [Authorize(Roles = "Customer,Sales")] // Khách hàng hoặc Sales có thể tạo
+        public async Task<ActionResult<CustomerDto>> PostCustomer(Customer customer) // Vẫn nhận Customer Model
         {
+            _logger.LogInformation("Yêu cầu tạo khách hàng mới: {FirstName} {LastName}", customer.FirstName, customer.LastName);
+
+            // --- KIỂM TRA FKs CHÍNH TRƯỚC KHI GỬI VÀO SERVICE ---
             if (!string.IsNullOrEmpty(customer.AccountID) && !AccountExists(customer.AccountID))
             {
                 return BadRequest("AccountID không tồn tại.");
             }
 
-            _context.Customers.Add(customer);
-            await _context.SaveChangesAsync();
-
-            // Tải lại thông tin liên quan để AutoMapper có thể ánh xạ đầy đủ
-            await _context.Entry(customer).Reference(c => c.Account).LoadAsync();
-            if (customer.Account != null)
+            try
             {
-                await _context.Entry(customer.Account).Reference(a => a.Role).LoadAsync();
+                var createdCustomerDto = await _customerService.CreateCustomerAsync(customer);
+                _logger.LogInformation("Đã tạo khách hàng mới với ID: {CustomerID}", createdCustomerDto.CustomerID);
+                return CreatedAtAction(nameof(GetCustomer), new { id = createdCustomerDto.CustomerID }, createdCustomerDto);
             }
-
-            // Ánh xạ Customer Model vừa tạo sang CustomerDto để trả về
-            var customerDto = _mapper.Map<CustomerDto>(customer);
-
-            return CreatedAtAction(nameof(GetCustomer), new { id = customerDto.CustomerID }, customerDto);
+            catch (ArgumentException ex)
+            {
+                _logger.LogError(ex, "Lỗi nghiệp vụ khi tạo khách hàng: {ErrorMessage}", ex.Message);
+                return BadRequest(ex.Message);
+            }
         }
 
-        // PUT và DELETE không thay đổi kiểu trả về là IActionResult
+        // API: PUT api/Customers/{id}
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin,Manager,Sales")] 
+        [Authorize(Roles = "Admin,Manager,Sales")] // Admin, Manager, Sales có thể cập nhật
         public async Task<IActionResult> PutCustomer(string id, Customer customer)
         {
+            _logger.LogInformation("Yêu cầu cập nhật khách hàng với ID: {CustomerID}", id);
             if (id != customer.CustomerID)
             {
                 return BadRequest();
             }
 
+            // Kiểm tra FKs chính
             if (!string.IsNullOrEmpty(customer.AccountID) && !AccountExists(customer.AccountID))
             {
                 return BadRequest("AccountID không tồn tại.");
             }
 
-            _context.Entry(customer).State = EntityState.Modified;
-
             try
             {
-                await _context.SaveChangesAsync();
+                var success = await _customerService.UpdateCustomerAsync(id, customer);
+
+                if (!success)
+                {
+                    _logger.LogWarning("Không tìm thấy khách hàng để cập nhật với ID: {CustomerID}", id);
+                    return NotFound();
+                }
+
+                _logger.LogInformation("Đã cập nhật khách hàng với ID: {CustomerID}", id);
+                return NoContent();
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật khách hàng: {ErrorMessage}", ex.Message);
+                return BadRequest(ex.Message);
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -118,34 +129,27 @@ namespace DecalXeAPI.Controllers
                     throw;
                 }
             }
-
-            return NoContent();
         }
 
+        // API: DELETE api/Customers/{id}
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin,Manager")]
+        [Authorize(Roles = "Admin,Manager")] // Chỉ Admin, Manager có thể xóa
         public async Task<IActionResult> DeleteCustomer(string id)
         {
-            var customer = await _context.Customers.FindAsync(id);
-            if (customer == null)
+            _logger.LogInformation("Yêu cầu xóa khách hàng với ID: {CustomerID}", id);
+            var success = await _customerService.DeleteCustomerAsync(id);
+
+            if (!success)
             {
+                _logger.LogWarning("Không tìm thấy khách hàng để xóa với ID: {CustomerID}", id);
                 return NotFound();
             }
 
-            _context.Customers.Remove(customer);
-            await _context.SaveChangesAsync();
-
             return NoContent();
         }
 
-        private bool CustomerExists(string id)
-        {
-            return _context.Customers.Any(e => e.CustomerID == id);
-        }
-
-        private bool AccountExists(string id)
-        {
-            return _context.Accounts.Any(e => e.AccountID == id);
-        }
+        // --- HÀM HỖ TRỢ (PRIVATE): KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (Vẫn giữ ở Controller để kiểm tra FKs) ---
+        private bool CustomerExists(string id) { return _context.Customers.Any(e => e.CustomerID == id); }
+        private bool AccountExists(string id) { return _context.Accounts.Any(e => e.AccountID == id); }
     }
 }

@@ -1,68 +1,70 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using DecalXeAPI.Data;
+using Microsoft.EntityFrameworkCore; // Vẫn cần cho các hàm Exists
+using DecalXeAPI.Data; // Vẫn cần ApplicationDbContext cho các hàm Exists
 using DecalXeAPI.Models;
 using DecalXeAPI.DTOs;
+using DecalXeAPI.Services.Interfaces; // <-- THÊM DÒNG NÀY (Để sử dụng IScheduledWorkUnitService)
 using AutoMapper;
 using System.Collections.Generic;
-using System;
-using System.Linq;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
 
 namespace DecalXeAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin,Manager,Technician")]
+    [Authorize]
     public class ScheduledWorkUnitsController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IMapper _mapper;
+        private readonly ApplicationDbContext _context; // Vẫn giữ để dùng các hàm Exists cơ bản
+        private readonly IScheduledWorkUnitService _scheduledWorkUnitService; // <-- KHAI BÁO BIẾN CHO SERVICE
+        private readonly IMapper _mapper; // Vẫn giữ để ánh xạ DTOs nếu có
+        private readonly ILogger<ScheduledWorkUnitsController> _logger; // Logger cho Controller
 
-        public ScheduledWorkUnitsController(ApplicationDbContext context, IMapper mapper)
+        public ScheduledWorkUnitsController(ApplicationDbContext context, IScheduledWorkUnitService scheduledWorkUnitService, IMapper mapper, ILogger<ScheduledWorkUnitsController> logger) // <-- TIÊM IScheduledWorkUnitService
         {
-            _context = context;
+            _context = context; // Để dùng các hàm hỗ trợ
+            _scheduledWorkUnitService = scheduledWorkUnitService; // Gán Service
             _mapper = mapper;
+            _logger = logger;
         }
 
         // API: GET api/ScheduledWorkUnits
         [HttpGet]
+        [Authorize(Roles = "Admin,Manager,Technician")]
         public async Task<ActionResult<IEnumerable<ScheduledWorkUnitDto>>> GetScheduledWorkUnits()
         {
-            var scheduledWorkUnits = await _context.ScheduledWorkUnits
-                                                    .Include(swu => swu.DailySchedule)
-                                                    .Include(swu => swu.TimeSlotDefinition)
-                                                    .Include(swu => swu.Order)
-                                                    .ToListAsync();
-            var scheduledWorkUnitDtos = _mapper.Map<List<ScheduledWorkUnitDto>>(scheduledWorkUnits);
-            return Ok(scheduledWorkUnitDtos);
+            _logger.LogInformation("Yêu cầu lấy danh sách đơn vị công việc đã lên lịch.");
+            // Ủy quyền logic cho Service Layer
+            var scheduledWorkUnits = await _scheduledWorkUnitService.GetScheduledWorkUnitsAsync();
+            return Ok(scheduledWorkUnits);
         }
 
         // API: GET api/ScheduledWorkUnits/{id}
         [HttpGet("{id}")]
+        [Authorize(Roles = "Admin,Manager,Technician")]
         public async Task<ActionResult<ScheduledWorkUnitDto>> GetScheduledWorkUnit(string id)
         {
-            var scheduledWorkUnit = await _context.ScheduledWorkUnits
-                                                    .Include(swu => swu.DailySchedule)
-                                                    .Include(swu => swu.TimeSlotDefinition)
-                                                    .Include(swu => swu.Order)
-                                                    .FirstOrDefaultAsync(swu => swu.ScheduledWorkUnitID == id);
+            _logger.LogInformation("Yêu cầu lấy đơn vị công việc đã lên lịch với ID: {ScheduledWorkUnitID}", id);
+            // Ủy quyền logic cho Service Layer
+            var scheduledWorkUnitDto = await _scheduledWorkUnitService.GetScheduledWorkUnitByIdAsync(id);
 
-            if (scheduledWorkUnit == null)
+            if (scheduledWorkUnitDto == null)
             {
                 return NotFound();
             }
 
-            var scheduledWorkUnitDto = _mapper.Map<ScheduledWorkUnitDto>(scheduledWorkUnit);
             return Ok(scheduledWorkUnitDto);
         }
 
         // API: POST api/ScheduledWorkUnits
-        // Thêm logic cập nhật trạng thái Order và kiểm tra ràng buộc lịch trình
         [HttpPost]
-        public async Task<ActionResult<ScheduledWorkUnitDto>> PostScheduledWorkUnit(ScheduledWorkUnit scheduledWorkUnit)
+        [Authorize(Roles = "Admin,Manager")] // Chỉ Admin, Manager có quyền tạo/gán lịch
+        public async Task<ActionResult<ScheduledWorkUnitDto>> PostScheduledWorkUnit(ScheduledWorkUnit scheduledWorkUnit) // Vẫn nhận ScheduledWorkUnit Model
         {
-            // Kiểm tra FKs
+            _logger.LogInformation("Yêu cầu tạo đơn vị công việc đã lên lịch mới cho DailyScheduleID: {DailyScheduleID}", scheduledWorkUnit.DailyScheduleID);
+
+            // --- KIỂM TRA FKs CHÍNH TRƯỚC KHI GỬI VÀO SERVICE ---
             if (!string.IsNullOrEmpty(scheduledWorkUnit.DailyScheduleID) && !TechnicianDailyScheduleExists(scheduledWorkUnit.DailyScheduleID))
             {
                 return BadRequest("DailyScheduleID không tồn tại.");
@@ -71,69 +73,33 @@ namespace DecalXeAPI.Controllers
             {
                 return BadRequest("SlotDefID không tồn tại.");
             }
+            // OrderID có thể null, chỉ kiểm tra nếu có giá trị
             if (!string.IsNullOrEmpty(scheduledWorkUnit.OrderID) && !OrderExists(scheduledWorkUnit.OrderID))
             {
                 return BadRequest("OrderID không tồn tại.");
             }
 
-            // --- LOGIC NGHIỆP VỤ: KIỂM TRA TRÙNG LỊCH HOẶC GÁN ĐƠN HÀNG ---
-            // Kiểm tra xem slot này đã bị gán cho Order khác hoặc đã bị Booked chưa
-            var existingWorkUnit = await _context.ScheduledWorkUnits
-                                                .FirstOrDefaultAsync(swu =>
-                                                    swu.DailyScheduleID == scheduledWorkUnit.DailyScheduleID &&
-                                                    swu.SlotDefID == scheduledWorkUnit.SlotDefID &&
-                                                    swu.ScheduledWorkUnitID != scheduledWorkUnit.ScheduledWorkUnitID); // Loại trừ chính nó khi cập nhật
-            if (existingWorkUnit != null && existingWorkUnit.OrderID != null)
+            // Ủy quyền logic tạo ScheduledWorkUnit cho Service Layer
+            var (createdDto, errorMessage) = await _scheduledWorkUnitService.CreateScheduledWorkUnitAsync(scheduledWorkUnit);
+
+            if (createdDto == null)
             {
-                return BadRequest("Khung giờ này đã được đặt.");
+                _logger.LogError("Lỗi khi tạo đơn vị công việc đã lên lịch: {ErrorMessage}", errorMessage);
+                return BadRequest(errorMessage); // Trả về lỗi từ Service
             }
 
-            // Nếu muốn gán cho Order, OrderID không được null
-            if (scheduledWorkUnit.Status == "Booked" && string.IsNullOrEmpty(scheduledWorkUnit.OrderID))
-            {
-                return BadRequest("OrderID không thể rỗng khi trạng thái là 'Booked'.");
-            }
-            if (scheduledWorkUnit.Status == "Available" && !string.IsNullOrEmpty(scheduledWorkUnit.OrderID))
-            {
-                return BadRequest("OrderID phải rỗng khi trạng thái là 'Available'.");
-            }
-
-            _context.ScheduledWorkUnits.Add(scheduledWorkUnit);
-            await _context.SaveChangesAsync();
-
-            // --- LOGIC NGHIỆP VỤ: CẬP NHẬT TRẠNG THÁI ORDER (NẾU CÓ) ---
-            if (!string.IsNullOrEmpty(scheduledWorkUnit.OrderID))
-            {
-                await UpdateOrderStatusBasedOnScheduledWorkUnits(scheduledWorkUnit.OrderID);
-            }
-
-            // Tải lại thông tin liên quan để AutoMapper có thể ánh xạ đầy đủ
-            await _context.Entry(scheduledWorkUnit).Reference(swu => swu.DailySchedule).LoadAsync();
-            await _context.Entry(scheduledWorkUnit).Reference(swu => swu.TimeSlotDefinition).LoadAsync();
-            await _context.Entry(scheduledWorkUnit).Reference(swu => swu.Order).LoadAsync();
-
-            var scheduledWorkUnitDto = _mapper.Map<ScheduledWorkUnitDto>(scheduledWorkUnit);
-            return CreatedAtAction(nameof(GetScheduledWorkUnit), new { id = scheduledWorkUnitDto.ScheduledWorkUnitID }, scheduledWorkUnitDto);
+            _logger.LogInformation("Đã tạo đơn vị công việc đã lên lịch mới với ID: {ScheduledWorkUnitID}", createdDto.ScheduledWorkUnitID);
+            return CreatedAtAction(nameof(GetScheduledWorkUnit), new { id = createdDto.ScheduledWorkUnitID }, createdDto);
         }
 
         // API: PUT api/ScheduledWorkUnits/{id}
-        // Thêm logic cập nhật trạng thái Order và kiểm tra ràng buộc lịch trình
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin,Manager,Technician")] // Admin, Manager có thể thay đổi bất kỳ, Technician chỉ của mình
         public async Task<IActionResult> PutScheduledWorkUnit(string id, ScheduledWorkUnit scheduledWorkUnit)
         {
-            if (id != scheduledWorkUnit.ScheduledWorkUnitID)
-            {
-                return BadRequest();
-            }
+            _logger.LogInformation("Yêu cầu cập nhật đơn vị công việc đã lên lịch với ID: {ScheduledWorkUnitID}", id);
 
-            // Lấy ScheduledWorkUnit cũ để so sánh
-            var oldScheduledWorkUnit = await _context.ScheduledWorkUnits.AsNoTracking().FirstOrDefaultAsync(swu => swu.ScheduledWorkUnitID == id);
-            if (oldScheduledWorkUnit == null)
-            {
-                return NotFound();
-            }
-
-            // Kiểm tra FKs
+            // Kiểm tra FKs chính
             if (!string.IsNullOrEmpty(scheduledWorkUnit.DailyScheduleID) && !TechnicianDailyScheduleExists(scheduledWorkUnit.DailyScheduleID))
             {
                 return BadRequest("DailyScheduleID không tồn tại.");
@@ -147,153 +113,50 @@ namespace DecalXeAPI.Controllers
                 return BadRequest("OrderID không tồn tại.");
             }
 
-            // --- LOGIC NGHIỆP VỤ: KIỂM TRA TRÙNG LỊCH HOẶC GÁN ĐƠN HÀNG (KHI CẬP NHẬT) ---
-            var existingWorkUnitConflict = await _context.ScheduledWorkUnits
-                                                            .FirstOrDefaultAsync(swu =>
-                                                                swu.DailyScheduleID == scheduledWorkUnit.DailyScheduleID &&
-                                                                swu.SlotDefID == scheduledWorkUnit.SlotDefID &&
-                                                                swu.ScheduledWorkUnitID != id); // Loại trừ chính nó
-            if (existingWorkUnitConflict != null && existingWorkUnitConflict.OrderID != null)
+            // Ủy quyền logic cập nhật ScheduledWorkUnit cho Service Layer
+            var (success, errorMessage) = await _scheduledWorkUnitService.UpdateScheduledWorkUnitAsync(id, scheduledWorkUnit);
+
+            if (!success)
             {
-                return BadRequest("Khung giờ này đã được đặt bởi Order khác.");
-            }
-
-            // Ràng buộc trạng thái OrderID và Status
-            if (scheduledWorkUnit.Status == "Booked" && string.IsNullOrEmpty(scheduledWorkUnit.OrderID))
-            {
-                return BadRequest("OrderID không thể rỗng khi trạng thái là 'Booked'.");
-            }
-            if (scheduledWorkUnit.Status == "Available" && !string.IsNullOrEmpty(scheduledWorkUnit.OrderID))
-            {
-                return BadRequest("OrderID phải rỗng khi trạng thái là 'Available'.");
-            }
-
-
-            _context.Entry(scheduledWorkUnit).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-
-                // --- LOGIC NGHIỆP VỤ: CẬP NHẬT TRẠNG THÁI ORDER (NẾU CÓ) ---
-                // Cập nhật trạng thái Order cũ (nếu OrderID thay đổi)
-                if (oldScheduledWorkUnit.OrderID != null && oldScheduledWorkUnit.OrderID != scheduledWorkUnit.OrderID)
+                if (errorMessage == "Đơn vị công việc đã lên lịch không tồn tại.")
                 {
-                    await UpdateOrderStatusBasedOnScheduledWorkUnits(oldScheduledWorkUnit.OrderID);
-                }
-                // Cập nhật trạng thái Order mới (nếu OrderID được gán/thay đổi)
-                if (!string.IsNullOrEmpty(scheduledWorkUnit.OrderID))
-                {
-                    await UpdateOrderStatusBasedOnScheduledWorkUnits(scheduledWorkUnit.OrderID);
-                }
-
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!ScheduledWorkUnitExists(id))
-                {
-                    return NotFound();
+                    _logger.LogWarning("Không tìm thấy đơn vị công việc đã lên lịch để cập nhật với ID: {ScheduledWorkUnitID}", id);
+                    return NotFound(errorMessage);
                 }
                 else
                 {
-                    throw;
+                    _logger.LogError("Lỗi khi cập nhật đơn vị công việc đã lên lịch: {ErrorMessage}", errorMessage);
+                    return BadRequest(errorMessage); // Trả về lỗi từ Service
                 }
             }
 
+            _logger.LogInformation("Đã cập nhật đơn vị công việc đã lên lịch với ID: {ScheduledWorkUnitID}", id);
             return NoContent();
         }
 
         // API: DELETE api/ScheduledWorkUnits/{id}
-        // Thêm logic cập nhật trạng thái Order sau khi xóa
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin,Manager")] // Chỉ Admin, Manager có quyền xóa
         public async Task<IActionResult> DeleteScheduledWorkUnit(string id)
         {
-            var scheduledWorkUnit = await _context.ScheduledWorkUnits.FindAsync(id);
-            if (scheduledWorkUnit == null)
+            _logger.LogInformation("Yêu cầu xóa đơn vị công việc đã lên lịch với ID: {ScheduledWorkUnitID}", id);
+
+            // Ủy quyền logic xóa cho Service Layer
+            var (success, errorMessage) = await _scheduledWorkUnitService.DeleteScheduledWorkUnitAsync(id);
+
+            if (!success)
             {
-                return NotFound();
+                _logger.LogWarning("Không tìm thấy đơn vị công việc đã lên lịch để xóa với ID: {ScheduledWorkUnitID}", id);
+                return NotFound(errorMessage);
             }
 
-            _context.ScheduledWorkUnits.Remove(scheduledWorkUnit);
-            await _context.SaveChangesAsync();
-
-            // --- LOGIC NGHIỆP VỤ: CẬP NHẬT TRẠNG THÁI ORDER (NẾU CÓ) ---
-            // Cập nhật trạng thái Order liên quan sau khi xóa ScheduledWorkUnit
-            if (!string.IsNullOrEmpty(scheduledWorkUnit.OrderID))
-            {
-                await UpdateOrderStatusBasedOnScheduledWorkUnits(scheduledWorkUnit.OrderID);
-            }
-
+            _logger.LogInformation("Đã xóa đơn vị công việc đã lên lịch với ID: {ScheduledWorkUnitID}", id);
             return NoContent();
         }
 
-        // --- HÀM HỖ TRỢ: CẬP NHẬT TRẠNG THÁI ORDER DỰA TRÊN CÁC SCHEDULEDWORKUNIT ---
-        private async Task UpdateOrderStatusBasedOnScheduledWorkUnits(string orderId)
-        {
-            var order = await _context.Orders
-                                    .Include(o => o.ScheduledWorkUnits) // Bao gồm các ScheduledWorkUnits của Order
-                                    .FirstOrDefaultAsync(o => o.OrderID == orderId);
-
-            if (order == null) return; // Không tìm thấy Order
-
-            var totalWorkUnitsForOrder = await _context.ScheduledWorkUnits
-                                                        .Where(swu => swu.OrderID == orderId)
-                                                        .ToListAsync();
-
-            var completedWorkUnits = totalWorkUnitsForOrder.Count(swu => swu.Status == "Completed");
-            var bookedWorkUnits = totalWorkUnitsForOrder.Count(swu => swu.Status == "Booked");
-            var totalRequiredWorkUnits = order.OrderDetails.Sum(od => od.Quantity * _context.DecalServices.Find(od.ServiceID).StandardWorkUnits); // Giả định StandardWorkUnits được định nghĩa trong DecalService
-
-            // Logic cập nhật trạng thái Order:
-            // Có thể cần chi tiết hơn tùy thuộc vào quy tắc nghiệp vụ thực tế
-            if (totalRequiredWorkUnits == 0) // Nếu đơn hàng không yêu cầu WorkUnit (ví dụ: chỉ tư vấn)
-            {
-                if (order.OrderStatus == "New" || order.OrderStatus == "Pending")
-                {
-                    order.OrderStatus = "Ready For Payment"; // Sẵn sàng thanh toán
-                }
-            }
-            else if (completedWorkUnits == totalRequiredWorkUnits) // Tất cả WorkUnit đã hoàn thành
-            {
-                order.OrderStatus = "Completed";
-            }
-            else if (bookedWorkUnits > 0 || completedWorkUnits > 0) // Có ít nhất một WorkUnit đã Booked hoặc Completed
-            {
-                order.OrderStatus = "In Progress";
-            }
-            else if (totalWorkUnitsForOrder.Any(swu => swu.Status == "Booked" || swu.Status == "Available")) // Có WorkUnit đã được gán hoặc sẵn sàng
-            {
-                order.OrderStatus = "Assigned"; // Đã được phân công lịch
-            }
-            else // Mặc định là New nếu không có WorkUnit nào được gán
-            {
-                order.OrderStatus = "New"; // Hoặc Pending
-            }
-
-            _context.Orders.Update(order);
-            await _context.SaveChangesAsync();
-        }
-
-
-        // --- HÀM HỖ TRỢ: KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG ---
-        private bool ScheduledWorkUnitExists(string id)
-        {
-            return _context.ScheduledWorkUnits.Any(e => e.ScheduledWorkUnitID == id);
-        }
-
-        private bool TechnicianDailyScheduleExists(string id)
-        {
-            return _context.TechnicianDailySchedules.Any(e => e.DailyScheduleID == id);
-        }
-
-        private bool TimeSlotDefinitionExists(string id)
-        {
-            return _context.TimeSlotDefinitions.Any(e => e.SlotDefID == id);
-        }
-
-        private bool OrderExists(string id)
-        {
-            return _context.Orders.Any(e => e.OrderID == id);
-        }
+        // --- HÀM HỖ TRỢ (PRIVATE): KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (Vẫn giữ ở Controller để kiểm tra FKs) ---
+        private bool TechnicianDailyScheduleExists(string id) { return _context.TechnicianDailySchedules.Any(e => e.DailyScheduleID == id); }
+        private bool TimeSlotDefinitionExists(string id) { return _context.TimeSlotDefinitions.Any(e => e.SlotDefID == id); }
+        private bool OrderExists(string id) { return _context.Orders.Any(e => e.OrderID == id); }
     }
 }

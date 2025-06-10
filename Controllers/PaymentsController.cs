@@ -1,100 +1,100 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using DecalXeAPI.Data;
+using Microsoft.EntityFrameworkCore; // Vẫn cần DbContext cho các hàm Exists cơ bản
+using DecalXeAPI.Data; // Vẫn cần ApplicationDbContext cho các hàm Exists
 using DecalXeAPI.Models;
-using DecalXeAPI.DTOs; // Để sử dụng PaymentDto
-using AutoMapper; // Để sử dụng AutoMapper
-using System.Collections.Generic; // Để sử dụng IEnumerable
-using System;
-using Microsoft.AspNetCore.Authorization; // Để sử dụng DateTime
+using DecalXeAPI.DTOs;
+using DecalXeAPI.Services.Interfaces; // <-- THÊM DÒNG NÀY (Để sử dụng IPaymentService)
+using AutoMapper;
+using System.Collections.Generic;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
+using System; // Để sử dụng ArgumentException
 
 namespace DecalXeAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin,Manager,Sales,Accountant")]
+    [Authorize(Roles = "Admin,Manager,Sales,Accountant")] // Quyền cho PaymentsController
     public class PaymentsController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IMapper _mapper; // Khai báo biến IMapper
+        private readonly ApplicationDbContext _context; // Vẫn giữ để dùng các hàm Exists cơ bản
+        private readonly IPaymentService _paymentService; // <-- KHAI BÁO BIẾN CHO SERVICE
+        private readonly IMapper _mapper;
+        private readonly ILogger<PaymentsController> _logger;
 
-        public PaymentsController(ApplicationDbContext context, IMapper mapper) // Tiêm IMapper
+        public PaymentsController(ApplicationDbContext context, IPaymentService paymentService, IMapper mapper, ILogger<PaymentsController> logger) // <-- TIÊM IPaymentService
         {
             _context = context;
+            _paymentService = paymentService;
             _mapper = mapper;
+            _logger = logger;
         }
 
         // API: GET api/Payments
-        // Lấy tất cả các Payment, bao gồm thông tin Order và Promotion liên quan, trả về DTO
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<PaymentDto>>> GetPayments() // Kiểu trả về là PaymentDto
+        public async Task<ActionResult<IEnumerable<PaymentDto>>> GetPayments()
         {
-            var payments = await _context.Payments
-                                        .Include(p => p.Order)
-                                        .Include(p => p.Promotion)
-                                        .ToListAsync();
-            // Sử dụng AutoMapper để ánh xạ từ List<Payment> sang List<PaymentDto>
-            var paymentDtos = _mapper.Map<List<PaymentDto>>(payments);
-            return Ok(paymentDtos);
+            _logger.LogInformation("Yêu cầu lấy danh sách thanh toán.");
+            var payments = await _paymentService.GetPaymentsAsync();
+            return Ok(payments);
         }
 
         // API: GET api/Payments/{id}
-        // Lấy thông tin một Payment theo PaymentID, bao gồm các thông tin liên quan, trả về DTO
         [HttpGet("{id}")]
-        public async Task<ActionResult<PaymentDto>> GetPayment(string id) // Kiểu trả về là PaymentDto
+        public async Task<ActionResult<PaymentDto>> GetPayment(string id)
         {
-            var payment = await _context.Payments
-                                        .Include(p => p.Order)
-                                        .Include(p => p.Promotion)
-                                        .FirstOrDefaultAsync(p => p.PaymentID == id);
+            _logger.LogInformation("Yêu cầu lấy thanh toán với ID: {PaymentID}", id);
+            var paymentDto = await _paymentService.GetPaymentByIdAsync(id);
 
-            if (payment == null)
+            if (paymentDto == null)
             {
+                _logger.LogWarning("Không tìm thấy thanh toán với ID: {PaymentID}", id);
                 return NotFound();
             }
 
-            // Sử dụng AutoMapper để ánh xạ từ Payment Model sang PaymentDto
-            var paymentDto = _mapper.Map<PaymentDto>(payment);
             return Ok(paymentDto);
         }
 
         // API: POST api/Payments
-        // Tạo một Payment mới, nhận vào Payment Model, trả về PaymentDto sau khi tạo
         [HttpPost]
-        public async Task<ActionResult<PaymentDto>> PostPayment(Payment payment) // Kiểu trả về là PaymentDto
+        public async Task<ActionResult<PaymentDto>> PostPayment(Payment payment) // Vẫn nhận Payment Model
         {
-            // Kiểm tra FKs có tồn tại không
+            _logger.LogInformation("Yêu cầu tạo thanh toán mới cho OrderID: {OrderID}", payment.OrderID);
+
+            // --- KIỂM TRA FKs CHÍNH TRƯỚC KHI GỬI VÀO SERVICE ---
             if (!string.IsNullOrEmpty(payment.OrderID) && !OrderExists(payment.OrderID))
             {
                 return BadRequest("OrderID không tồn tại.");
             }
-            // PromotionID có thể null, chỉ kiểm tra nếu có giá trị
             if (!string.IsNullOrEmpty(payment.PromotionID) && !PromotionExists(payment.PromotionID))
             {
                 return BadRequest("PromotionID không tồn tại.");
             }
 
-            _context.Payments.Add(payment);
-            await _context.SaveChangesAsync();
-
-            // Tải lại thông tin liên quan để AutoMapper có thể ánh xạ đầy đủ
-            await _context.Entry(payment).Reference(p => p.Order).LoadAsync();
-            await _context.Entry(payment).Reference(p => p.Promotion).LoadAsync();
-
-            // Ánh xạ Payment Model vừa tạo sang PaymentDto để trả về
-            var paymentDto = _mapper.Map<PaymentDto>(payment);
-            return CreatedAtAction(nameof(GetPayment), new { id = paymentDto.PaymentID }, paymentDto);
+            try
+            {
+                var createdPaymentDto = await _paymentService.CreatePaymentAsync(payment);
+                _logger.LogInformation("Đã tạo thanh toán mới với ID: {PaymentID}", createdPaymentDto.PaymentID);
+                return CreatedAtAction(nameof(GetPayment), new { id = createdPaymentDto.PaymentID }, createdPaymentDto);
+            }
+            catch (ArgumentException ex) // Bắt lỗi từ Service nếu FK không hợp lệ
+            {
+                _logger.LogError(ex, "Lỗi nghiệp vụ khi tạo thanh toán: {ErrorMessage}", ex.Message);
+                return BadRequest(ex.Message);
+            }
         }
 
         // API: PUT api/Payments/{id}
         [HttpPut("{id}")]
         public async Task<IActionResult> PutPayment(string id, Payment payment)
         {
+            _logger.LogInformation("Yêu cầu cập nhật thanh toán với ID: {PaymentID}", id);
             if (id != payment.PaymentID)
             {
                 return BadRequest();
             }
 
+            // Kiểm tra FKs chính
             if (!string.IsNullOrEmpty(payment.OrderID) && !OrderExists(payment.OrderID))
             {
                 return BadRequest("OrderID không tồn tại.");
@@ -104,11 +104,23 @@ namespace DecalXeAPI.Controllers
                 return BadRequest("PromotionID không tồn tại.");
             }
 
-            _context.Entry(payment).State = EntityState.Modified;
-
             try
             {
-                await _context.SaveChangesAsync();
+                var success = await _paymentService.UpdatePaymentAsync(id, payment);
+
+                if (!success)
+                {
+                    _logger.LogWarning("Không tìm thấy thanh toán để cập nhật với ID: {PaymentID}", id);
+                    return NotFound();
+                }
+
+                _logger.LogInformation("Đã cập nhật thanh toán với ID: {PaymentID}", id);
+                return NoContent();
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật thanh toán: {ErrorMessage}", ex.Message);
+                return BadRequest(ex.Message);
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -121,39 +133,27 @@ namespace DecalXeAPI.Controllers
                     throw;
                 }
             }
-
-            return NoContent();
         }
 
         // API: DELETE api/Payments/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeletePayment(string id)
         {
-            var payment = await _context.Payments.FindAsync(id);
-            if (payment == null)
+            _logger.LogInformation("Yêu cầu xóa thanh toán với ID: {PaymentID}", id);
+            var success = await _paymentService.DeletePaymentAsync(id);
+
+            if (!success)
             {
+                _logger.LogWarning("Không tìm thấy thanh toán để xóa với ID: {PaymentID}", id);
                 return NotFound();
             }
-
-            _context.Payments.Remove(payment);
-            await _context.SaveChangesAsync();
 
             return NoContent();
         }
 
-        private bool PaymentExists(string id)
-        {
-            return _context.Payments.Any(e => e.PaymentID == id);
-        }
-
-        private bool OrderExists(string id)
-        {
-            return _context.Orders.Any(e => e.OrderID == id);
-        }
-
-        private bool PromotionExists(string id)
-        {
-            return _context.Promotions.Any(e => e.PromotionID == id);
-        }
+        // --- HÀM HỖ TRỢ (PRIVATE): KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (Vẫn giữ ở Controller để kiểm tra FKs) ---
+        private bool PaymentExists(string id) { return _context.Payments.Any(e => e.PaymentID == id); }
+        private bool OrderExists(string id) { return _context.Orders.Any(e => e.OrderID == id); }
+        private bool PromotionExists(string id) { return _context.Promotions.Any(e => e.PromotionID == id); }
     }
 }

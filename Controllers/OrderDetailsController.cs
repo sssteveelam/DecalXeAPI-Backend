@@ -1,66 +1,73 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using DecalXeAPI.Data;
+using Microsoft.EntityFrameworkCore; // Vẫn cần để dùng các hàm Exists đơn giản
+using DecalXeAPI.Data; // Vẫn cần ApplicationDbContext cho các hàm Exists
 using DecalXeAPI.Models;
 using DecalXeAPI.DTOs;
+using DecalXeAPI.Services.Interfaces; // <-- THÊM DÒNG NÀY (Để sử dụng IOrderDetailService)
 using AutoMapper;
 using System.Collections.Generic;
-using System.Linq;
-using Microsoft.AspNetCore.Authorization; // <-- THÊM DÒNG NÀY
+using System.Linq; // Để dùng Any() trong hàm Exists
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging; // Vẫn cần để ghi log Controller
 
 namespace DecalXeAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize] // <-- MẶC ĐỊNH TẤT CẢ API TRONG CONTROLLER NÀY ĐỀU CẦN XÁC THỰC
+    [Authorize]
     public class OrderDetailsController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IMapper _mapper;
+        private readonly ApplicationDbContext _context; // Vẫn giữ để dùng các hàm Exists
+        private readonly IOrderDetailService _orderDetailService; // <-- KHAI BÁO BIẾN CHO SERVICE
+        private readonly IMapper _mapper; // Vẫn giữ để ánh xạ DTOs nếu có
+        private readonly ILogger<OrderDetailsController> _logger; // Logger cho Controller
 
-        public OrderDetailsController(ApplicationDbContext context, IMapper mapper)
+        public OrderDetailsController(ApplicationDbContext context, IOrderDetailService orderDetailService, IMapper mapper, ILogger<OrderDetailsController> logger) // <-- TIÊM IOrderDetailService
         {
-            _context = context;
+            _context = context; // Để dùng các hàm hỗ trợ
+            _orderDetailService = orderDetailService; // Gán Service
             _mapper = mapper;
+            _logger = logger;
         }
 
         // API: GET api/OrderDetails
         [HttpGet]
-        [Authorize(Roles = "Admin,Manager,Sales,Technician")] // <-- NỚI LỎNG QUYỀN CHO API GET
+        [Authorize(Roles = "Admin,Manager,Sales,Technician")]
         public async Task<ActionResult<IEnumerable<OrderDetailDto>>> GetOrderDetails()
         {
-            var orderDetails = await _context.OrderDetails
-                                            .Include(od => od.Order)
-                                            .Include(od => od.DecalService)
-                                            .ToListAsync();
-            var orderDetailDtos = _mapper.Map<List<OrderDetailDto>>(orderDetails);
-            return Ok(orderDetailDtos);
+            _logger.LogInformation("Yêu cầu lấy danh sách chi tiết đơn hàng.");
+            // Ủy quyền logic cho Service Layer
+            var orderDetails = await _orderDetailService.GetOrderDetailsAsync();
+            return Ok(orderDetails);
         }
 
         // API: GET api/OrderDetails/{id}
         [HttpGet("{id}")]
-        [Authorize(Roles = "Admin,Manager,Sales,Technician")] // <-- NỚI LỎNG QUYỀN CHO API GET BY ID
+        [Authorize(Roles = "Admin,Manager,Sales,Technician")]
         public async Task<ActionResult<OrderDetailDto>> GetOrderDetail(string id)
         {
-            var orderDetail = await _context.OrderDetails
-                                                .Include(od => od.Order)
-                                                .Include(od => od.DecalService)
-                                                .FirstOrDefaultAsync(od => od.OrderDetailID == id);
+            _logger.LogInformation("Yêu cầu lấy chi tiết đơn hàng với ID: {OrderDetailID}", id);
+            // Ủy quyền logic cho Service Layer
+            var orderDetailDto = await _orderDetailService.GetOrderDetailByIdAsync(id);
 
-            if (orderDetail == null)
+            if (orderDetailDto == null)
             {
+                _logger.LogWarning("Không tìm thấy chi tiết đơn hàng với ID: {OrderDetailID}", id);
                 return NotFound();
             }
 
-            var orderDetailDto = _mapper.Map<OrderDetailDto>(orderDetail);
             return Ok(orderDetailDto);
         }
 
         // API: POST api/OrderDetails
         [HttpPost]
-        [Authorize(Roles = "Admin,Manager,Sales")] // <-- Chỉ Admin, Manager, Sales được phép POST
-        public async Task<ActionResult<OrderDetailDto>> PostOrderDetail(OrderDetail orderDetail)
+        [Authorize(Roles = "Admin,Manager,Sales")]
+        public async Task<ActionResult<OrderDetailDto>> PostOrderDetail(OrderDetail orderDetail) // Vẫn nhận OrderDetail Model
         {
+            _logger.LogInformation("Yêu cầu tạo chi tiết đơn hàng mới cho OrderID: {OrderID}, ServiceID: {ServiceID}", orderDetail.OrderID, orderDetail.ServiceID);
+
+            // --- KIỂM TRA FKs CHÍNH TRƯỚC KHI GỬI VÀO SERVICE ---
+            // Controller sẽ chịu trách nhiệm validate các FKs chính
             if (!string.IsNullOrEmpty(orderDetail.OrderID) && !OrderExists(orderDetail.OrderID))
             {
                 return BadRequest("OrderID không tồn tại.");
@@ -70,65 +77,27 @@ namespace DecalXeAPI.Controllers
                 return BadRequest("ServiceID không tồn tại.");
             }
 
-            var service = await _context.DecalServices
-                                        .Include(s => s.ServiceProducts)
-                                            .ThenInclude(sp => sp.Product)
-                                        .FirstOrDefaultAsync(s => s.ServiceID == orderDetail.ServiceID);
+            // Ủy quyền logic tạo OrderDetail cho Service Layer
+            var (createdOrderDetailDto, errorMessage) = await _orderDetailService.CreateOrderDetailAsync(orderDetail);
 
-            if (service == null)
+            if (createdOrderDetailDto == null)
             {
-                return BadRequest("Dịch vụ không tồn tại hoặc không tìm thấy thông tin sản phẩm liên quan.");
+                _logger.LogError("Lỗi khi tạo chi tiết đơn hàng: {ErrorMessage}", errorMessage);
+                return BadRequest(errorMessage); // Trả về lỗi từ Service
             }
 
-            orderDetail.Price = service.Price;
-
-            foreach (var sp in service.ServiceProducts)
-            {
-                if (sp.Product != null)
-                {
-                    var quantityToDeduct = sp.QuantityUsed * orderDetail.Quantity;
-                    if (sp.Product.StockQuantity < quantityToDeduct)
-                    {
-                        return BadRequest($"Sản phẩm '{sp.Product.ProductName}' không đủ tồn kho. Chỉ còn {sp.Product.StockQuantity} {sp.Product.Unit} trong kho, nhưng cần {quantityToDeduct} {sp.Product.Unit}.");
-                    }
-                    sp.Product.StockQuantity -= (int)quantityToDeduct;
-                    _context.Products.Update(sp.Product);
-                }
-            }
-            await _context.SaveChangesAsync();
-
-            _context.OrderDetails.Add(orderDetail);
-            await _context.SaveChangesAsync();
-
-            await RecalculateOrderTotalAmount(orderDetail.OrderID);
-
-            await _context.Entry(orderDetail).Reference(od => od.Order).LoadAsync();
-            await _context.Entry(orderDetail).Reference(od => od.DecalService).LoadAsync();
-
-            var orderDetailDto = _mapper.Map<OrderDetailDto>(orderDetail);
-            return CreatedAtAction(nameof(GetOrderDetail), new { id = orderDetailDto.OrderDetailID }, orderDetailDto);
+            _logger.LogInformation("Đã tạo chi tiết đơn hàng mới với ID: {OrderDetailID}", createdOrderDetailDto.OrderDetailID);
+            return CreatedAtAction(nameof(GetOrderDetail), new { id = createdOrderDetailDto.OrderDetailID }, createdOrderDetailDto);
         }
 
         // API: PUT api/OrderDetails/{id}
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin,Manager,Sales")] // <-- Chỉ Admin, Manager, Sales được phép PUT
+        [Authorize(Roles = "Admin,Manager,Sales")]
         public async Task<IActionResult> PutOrderDetail(string id, OrderDetail orderDetail)
         {
-            if (id != orderDetail.OrderDetailID)
-            {
-                return BadRequest();
-            }
+            _logger.LogInformation("Yêu cầu cập nhật chi tiết đơn hàng với ID: {OrderDetailID}", id);
 
-            var oldOrderDetail = await _context.OrderDetails
-                                                .Include(od => od.DecalService)
-                                                    .ThenInclude(ds => ds.ServiceProducts)
-                                                        .ThenInclude(sp => sp.Product)
-                                                .FirstOrDefaultAsync(od => od.OrderDetailID == id);
-            if (oldOrderDetail == null)
-            {
-                return NotFound();
-            }
-
+            // Kiểm tra FKs chính
             if (!string.IsNullOrEmpty(orderDetail.OrderID) && !OrderExists(orderDetail.OrderID))
             {
                 return BadRequest("OrderID không tồn tại.");
@@ -138,129 +107,49 @@ namespace DecalXeAPI.Controllers
                 return BadRequest("ServiceID không tồn tại.");
             }
 
-            var newService = await _context.DecalServices
-                                            .Include(s => s.ServiceProducts)
-                                                .ThenInclude(sp => sp.Product)
-                                            .FirstOrDefaultAsync(s => s.ServiceID == orderDetail.ServiceID);
-            if (newService == null)
-            {
-                return BadRequest("Dịch vụ mới không tồn tại.");
-            }
+            // Ủy quyền logic cập nhật OrderDetail cho Service Layer
+            var (success, errorMessage) = await _orderDetailService.UpdateOrderDetailAsync(id, orderDetail);
 
-            orderDetail.Price = newService.Price;
-
-            if (oldOrderDetail.Quantity != orderDetail.Quantity || oldOrderDetail.ServiceID != orderDetail.ServiceID)
+            if (!success)
             {
-                foreach (var sp in oldOrderDetail.DecalService.ServiceProducts)
+                if (errorMessage == "Chi tiết đơn hàng không tồn tại.")
                 {
-                    if (sp.Product != null)
-                    {
-                        sp.Product.StockQuantity += (int)(sp.QuantityUsed * oldOrderDetail.Quantity);
-                        _context.Products.Update(sp.Product);
-                    }
-                }
-
-                foreach (var sp in newService.ServiceProducts)
-                {
-                    if (sp.Product != null)
-                    {
-                        var quantityToDeduct = sp.QuantityUsed * orderDetail.Quantity;
-                        if (sp.Product.StockQuantity < quantityToDeduct)
-                        {
-                            foreach (var rollbackSp in oldOrderDetail.DecalService.ServiceProducts)
-                            {
-                                if (rollbackSp.Product != null)
-                                {
-                                    rollbackSp.Product.StockQuantity -= (int)(rollbackSp.QuantityUsed * oldOrderDetail.Quantity);
-                                    _context.Products.Update(rollbackSp.Product);
-                                }
-                            }
-                            await _context.SaveChangesAsync();
-                            return BadRequest($"Sản phẩm '{sp.Product.ProductName}' không đủ tồn kho cho yêu cầu mới. Chỉ còn {sp.Product.StockQuantity} {sp.Product.Unit}.");
-                        }
-                        sp.Product.StockQuantity -= (int)quantityToDeduct;
-                        _context.Products.Update(sp.Product);
-                    }
-                }
-            }
-            await _context.SaveChangesAsync();
-
-            _context.Entry(orderDetail).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!OrderDetailExists(id))
-                {
-                    return NotFound();
+                    _logger.LogWarning("Không tìm thấy chi tiết đơn hàng để cập nhật với ID: {OrderDetailID}", id);
+                    return NotFound(errorMessage);
                 }
                 else
                 {
-                    throw;
+                    _logger.LogError("Lỗi khi cập nhật chi tiết đơn hàng: {ErrorMessage}", errorMessage);
+                    return BadRequest(errorMessage); // Trả về lỗi từ Service
                 }
             }
 
-            await RecalculateOrderTotalAmount(orderDetail.OrderID);
-
+            _logger.LogInformation("Đã cập nhật chi tiết đơn hàng với ID: {OrderDetailID}", id);
             return NoContent();
         }
 
         // API: DELETE api/OrderDetails/{id}
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin,Manager,Sales")] // <-- Chỉ Admin, Manager, Sales được phép DELETE
+        [Authorize(Roles = "Admin,Manager,Sales")]
         public async Task<IActionResult> DeleteOrderDetail(string id)
         {
-            var orderDetail = await _context.OrderDetails
-                                            .Include(od => od.DecalService)
-                                                .ThenInclude(ds => ds.ServiceProducts)
-                                                    .ThenInclude(sp => sp.Product)
-                                            .FirstOrDefaultAsync(od => od.OrderDetailID == id);
-            if (orderDetail == null)
+            _logger.LogInformation("Yêu cầu xóa chi tiết đơn hàng với ID: {OrderDetailID}", id);
+
+            // Ủy quyền logic xóa OrderDetail cho Service Layer
+            var (success, errorMessage) = await _orderDetailService.DeleteOrderDetailAsync(id);
+
+            if (!success)
             {
-                return NotFound();
+                _logger.LogWarning("Không tìm thấy chi tiết đơn hàng để xóa với ID: {OrderDetailID}", id);
+                return NotFound(errorMessage); // Service trả về false nếu không tìm thấy
             }
 
-            _context.OrderDetails.Remove(orderDetail);
-            await _context.SaveChangesAsync();
-
-            if (orderDetail.DecalService != null && orderDetail.DecalService.ServiceProducts != null)
-            {
-                foreach (var sp in orderDetail.DecalService.ServiceProducts)
-                {
-                    if (sp.Product != null)
-                    {
-                        sp.Product.StockQuantity += (int)(sp.QuantityUsed * orderDetail.Quantity);
-                        _context.Products.Update(sp.Product);
-                    }
-                }
-                await _context.SaveChangesAsync();
-            }
-
-            await RecalculateOrderTotalAmount(orderDetail.OrderID);
-
+            _logger.LogInformation("Đã xóa chi tiết đơn hàng với ID: {OrderDetailID}", id);
             return NoContent();
         }
 
-        // Hàm hỗ trợ: Tính toán lại tổng tiền của một Order
-        private async Task RecalculateOrderTotalAmount(string orderId)
-        {
-            var order = await _context.Orders
-                                    .Include(o => o.OrderDetails)
-                                    .FirstOrDefaultAsync(o => o.OrderID == orderId);
-
-            if (order != null)
-            {
-                order.TotalAmount = order.OrderDetails.Sum(od => od.Price * od.Quantity);
-                _context.Orders.Update(order);
-                await _context.SaveChangesAsync();
-            }
-        }
-
-        // --- HÀM HỖ TRỢ: KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG ---
-        private bool OrderDetailExists(string id) { return _context.OrderDetails.Any(e => e.OrderDetailID == id); }
+        // --- HÀM HỖ TRỢ (PRIVATE): KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG ---
+        // Các hàm này vẫn được giữ ở Controller để kiểm tra FKs cơ bản trước khi gọi Service
         private bool OrderExists(string id) { return _context.Orders.Any(e => e.OrderID == id); }
         private bool DecalServiceExists(string id) { return _context.DecalServices.Any(e => e.ServiceID == id); }
     }

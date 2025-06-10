@@ -2,87 +2,110 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DecalXeAPI.Data;
 using DecalXeAPI.Models;
-using DecalXeAPI.DTOs; // Để sử dụng DecalTypeDto
-using AutoMapper; // Để sử dụng AutoMapper
+using DecalXeAPI.DTOs;
+using DecalXeAPI.Services.Interfaces; // <-- THÊM DÒNG NÀY (Để sử dụng IDecalTypeService)
+using AutoMapper;
 using System.Collections.Generic;
-using Microsoft.AspNetCore.Authorization; // Để sử dụng IEnumerable
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
+using System;
 
 namespace DecalXeAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin,Manager")]
+    [Authorize(Roles = "Admin,Manager")] // Quyền cho DecalTypesController
     public class DecalTypesController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IMapper _mapper; // Khai báo biến IMapper
+        private readonly ApplicationDbContext _context; // Vẫn giữ để dùng các hàm Exists cơ bản
+        private readonly IDecalTypeService _decalTypeService; // <-- KHAI BÁO BIẾN CHO SERVICE
+        private readonly IMapper _mapper;
+        private readonly ILogger<DecalTypesController> _logger;
 
-        public DecalTypesController(ApplicationDbContext context, IMapper mapper) // Tiêm IMapper
+        public DecalTypesController(ApplicationDbContext context, IDecalTypeService decalTypeService, IMapper mapper, ILogger<DecalTypesController> logger) // <-- TIÊM IDecalTypeService
         {
             _context = context;
+            _decalTypeService = decalTypeService;
             _mapper = mapper;
+            _logger = logger;
         }
 
         // API: GET api/DecalTypes
-        // Lấy tất cả các DecalType, trả về dưới dạng DecalTypeDto
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<DecalTypeDto>>> GetDecalTypes() // Kiểu trả về là DecalTypeDto
+        public async Task<ActionResult<IEnumerable<DecalTypeDto>>> GetDecalTypes()
         {
-            var decalTypes = await _context.DecalTypes.ToListAsync();
-            // Sử dụng AutoMapper để ánh xạ từ List<DecalType> sang List<DecalTypeDto>
-            var decalTypeDtos = _mapper.Map<List<DecalTypeDto>>(decalTypes);
-            return Ok(decalTypeDtos);
+            _logger.LogInformation("Yêu cầu lấy danh sách loại decal.");
+            // Ủy quyền logic cho Service Layer
+            var decalTypes = await _decalTypeService.GetDecalTypesAsync();
+            return Ok(decalTypes);
         }
 
         // API: GET api/DecalTypes/{id}
-        // Lấy thông tin một DecalType theo DecalTypeID, trả về dưới dạng DecalTypeDto
         [HttpGet("{id}")]
-        public async Task<ActionResult<DecalTypeDto>> GetDecalType(string id) // Kiểu trả về là DecalTypeDto
+        public async Task<ActionResult<DecalTypeDto>> GetDecalType(string id)
         {
-            var decalType = await _context.DecalTypes.FindAsync(id);
+            _logger.LogInformation("Yêu cầu lấy loại decal với ID: {DecalTypeID}", id);
+            // Ủy quyền logic cho Service Layer
+            var decalTypeDto = await _decalTypeService.GetDecalTypeByIdAsync(id);
 
-            if (decalType == null)
+            if (decalTypeDto == null)
             {
+                _logger.LogWarning("Không tìm thấy loại decal với ID: {DecalTypeID}", id);
                 return NotFound();
             }
 
-            // Sử dụng AutoMapper để ánh xạ từ DecalType Model sang DecalTypeDto
-            var decalTypeDto = _mapper.Map<DecalTypeDto>(decalType);
             return Ok(decalTypeDto);
         }
 
         // API: POST api/DecalTypes
-        // Tạo một DecalType mới, nhận vào DecalType Model, trả về DecalTypeDto sau khi tạo
         [HttpPost]
-        public async Task<ActionResult<DecalTypeDto>> PostDecalType(DecalType decalType) // Kiểu trả về là DecalTypeDto
+        public async Task<ActionResult<DecalTypeDto>> PostDecalType(DecalType decalType) // Vẫn nhận Model
         {
-            _context.DecalTypes.Add(decalType);
-            await _context.SaveChangesAsync();
-
-            // Không cần LoadAsync() vì DecalTypeDto không có Navigation Property cần tải
-            // (DecalTypeName được ánh xạ trực tiếp từ DecalType Model mà không cần Include)
-
-            // Ánh xạ DecalType Model vừa tạo sang DecalTypeDto để trả về
-            var decalTypeDto = _mapper.Map<DecalTypeDto>(decalType);
-            return CreatedAtAction(nameof(GetDecalType), new { id = decalTypeDto.DecalTypeID }, decalTypeDto);
+            _logger.LogInformation("Yêu cầu tạo loại decal mới: {DecalTypeName}", decalType.DecalTypeName);
+            try
+            {
+                // Ủy quyền logic tạo DecalType cho Service Layer
+                var createdDecalTypeDto = await _decalTypeService.CreateDecalTypeAsync(decalType);
+                _logger.LogInformation("Đã tạo loại decal mới với ID: {DecalTypeID}", createdDecalTypeDto.DecalTypeID);
+                return CreatedAtAction(nameof(GetDecalType), new { id = createdDecalTypeDto.DecalTypeID }, createdDecalTypeDto);
+            }
+            catch (ArgumentException ex) // Bắt lỗi từ Service nếu có
+            {
+                _logger.LogError(ex, "Lỗi nghiệp vụ khi tạo loại decal: {ErrorMessage}", ex.Message);
+                return BadRequest(ex.Message);
+            }
         }
 
         // API: PUT api/DecalTypes/{id}
         [HttpPut("{id}")]
         public async Task<IActionResult> PutDecalType(string id, DecalType decalType)
         {
+            _logger.LogInformation("Yêu cầu cập nhật loại decal với ID: {DecalTypeID}", id);
             if (id != decalType.DecalTypeID)
             {
                 return BadRequest();
             }
 
-            _context.Entry(decalType).State = EntityState.Modified;
-
             try
             {
-                await _context.SaveChangesAsync();
+                // Ủy quyền logic cập nhật DecalType cho Service Layer
+                var success = await _decalTypeService.UpdateDecalTypeAsync(id, decalType);
+
+                if (!success)
+                {
+                    _logger.LogWarning("Không tìm thấy loại decal để cập nhật với ID: {DecalTypeID}", id);
+                    return NotFound();
+                }
+
+                _logger.LogInformation("Đã cập nhật loại decal với ID: {DecalTypeID}", id);
+                return NoContent();
             }
-            catch (DbUpdateConcurrencyException)
+            catch (ArgumentException ex)
+            {
+                _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật loại decal: {ErrorMessage}", ex.Message);
+                return BadRequest(ex.Message);
+            }
+            catch (DbUpdateConcurrencyException) // Vẫn bắt riêng lỗi này ở Controller
             {
                 if (!DecalTypeExists(id))
                 {
@@ -93,29 +116,25 @@ namespace DecalXeAPI.Controllers
                     throw;
                 }
             }
-
-            return NoContent();
         }
 
         // API: DELETE api/DecalTypes/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteDecalType(string id)
         {
-            var decalType = await _context.DecalTypes.FindAsync(id);
-            if (decalType == null)
+            _logger.LogInformation("Yêu cầu xóa loại decal với ID: {DecalTypeID}", id);
+            var success = await _decalTypeService.DeleteDecalTypeAsync(id);
+
+            if (!success)
             {
+                _logger.LogWarning("Không tìm thấy loại decal để xóa với ID: {DecalTypeID}", id);
                 return NotFound();
             }
-
-            _context.DecalTypes.Remove(decalType);
-            await _context.SaveChangesAsync();
 
             return NoContent();
         }
 
-        private bool DecalTypeExists(string id)
-        {
-            return _context.DecalTypes.Any(e => e.DecalTypeID == id);
-        }
+        // --- HÀM HỖ TRỢ (PRIVATE): KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (Vẫn giữ ở Controller để kiểm tra FKs) ---
+        private bool DecalTypeExists(string id) { return _context.DecalTypes.Any(e => e.DecalTypeID == id); }
     }
 }
