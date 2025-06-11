@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Text.Json.Serialization;
+using System.Collections.Generic;
+using System.Text.Json.Serialization; // Để dùng [JsonIgnore]
 
 namespace DecalXeAPI.Models
 {
@@ -17,14 +18,17 @@ namespace DecalXeAPI.Models
         public string? ImageURL { get; set; } // URL hình ảnh mẫu decal
 
         // Khóa ngoại (Foreign Key): Một DecalTemplate thuộc về một DecalType
-        // [ForeignKey("DecalType")]
+        [ForeignKey("DecalType")]
         public string DecalTypeID { get; set; } = string.Empty; // FK_DecalTypeID
-
-        // Navigation Property: Một DecalTemplate có một DecalType
         public DecalType? DecalType { get; set; }
 
-        // Navigation Property: Một DecalTemplate có thể được dùng trong nhiều ServiceDecalTemplate (bảng trung gian)
-        [JsonIgnore]
+        // --- NAVIGATION PROPERTIES HIỆN CÓ (Giữ nguyên) ---
+        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
         public ICollection<ServiceDecalTemplate>? ServiceDecalTemplates { get; set; }
+
+        // --- NAVIGATION PROPERTY MỚI TỪ YÊU CẦU REVIEW ---
+        // Mối quan hệ N-N với CarModel thông qua bảng trung gian CarModelDecalTemplate
+        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
+        public ICollection<CarModelDecalTemplate>? CarModelDecalTemplates { get; set; }
     }
 }

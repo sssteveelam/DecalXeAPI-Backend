@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema; // Để dùng thuộc tính [ForeignKey]
-using System.Text.Json.Serialization; // <-- THÊM DÒNG NÀY
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Collections.Generic;
+using System.Text.Json.Serialization; // Để dùng [JsonIgnore]
 
 namespace DecalXeAPI.Models
 {
@@ -20,19 +21,18 @@ namespace DecalXeAPI.Models
         public bool IsActive { get; set; } = true; // Mặc định là Active
 
         // Khóa ngoại (Foreign Key): Một Account thuộc về một Role
-        // [ForeignKey("Role")] // Có thể bỏ qua nếu tên cột RoleID đủ rõ ràng
+        [ForeignKey("Role")]
         public string RoleID { get; set; } = string.Empty; // FK_RoleID
-
-        // Navigation Property (quan hệ một-một hoặc một-nhiều về phía "một")
-        // Một Account có thể có một Role. Dấu '?' nghĩa là có thể null nếu RoleID null
-        [JsonIgnore]
         public Role? Role { get; set; }
 
-        // Navigation Properties cho quan hệ 1-1 với Customer và Employee
-        // Một Account có thể là Customer hoặc Employee (hoặc cả hai nếu thiết kế cho phép)
-        [JsonIgnore]
+        // --- NAVIGATION PROPERTIES HIỆN CÓ (Giữ nguyên) ---
+        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
         public Customer? Customer { get; set; }
-        [JsonIgnore]
+        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
         public Employee? Employee { get; set; }
+
+        // --- NAVIGATION PROPERTY MỚI TỪ YÊU CẦU REVIEW ---
+        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
+        public ICollection<DesignComment>? DesignComments { get; set; } // Các bình luận thiết kế mà tài khoản này đã gửi
     }
 }

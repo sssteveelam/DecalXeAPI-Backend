@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Text.Json.Serialization;
+using System.Collections.Generic;
+using System.Text.Json.Serialization; // Để dùng [JsonIgnore]
 
 namespace DecalXeAPI.Models
 {
@@ -28,18 +29,20 @@ namespace DecalXeAPI.Models
         public string? Address { get; set; }
 
         // Khóa ngoại (Foreign Key): Một Customer có thể liên kết với một Account
-        // [ForeignKey("Account")]
+        [ForeignKey("Account")]
         public string? AccountID { get; set; } // FK_AccountID (có thể null nếu khách không đăng ký tài khoản)
-
-        // Navigation Property: Một Customer có thể có một Account
         public Account? Account { get; set; }
 
-        // Navigation Properties cho các mối quan hệ một-nhiều
-        [JsonIgnore]
+        // --- NAVIGATION PROPERTIES HIỆN CÓ (Giữ nguyên) ---
+        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
         public ICollection<Order>? Orders { get; set; }
-        [JsonIgnore]
+        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
         public ICollection<Feedback>? Feedbacks { get; set; }
-        [JsonIgnore]
+        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
         public ICollection<CustomServiceRequest>? CustomServiceRequests { get; set; }
+
+        // --- NAVIGATION PROPERTY MỚI TỪ YÊU CẦU REVIEW ---
+        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
+        public ICollection<CustomerVehicle>? CustomerVehicles { get; set; } // Danh sách xe của khách hàng
     }
 }
