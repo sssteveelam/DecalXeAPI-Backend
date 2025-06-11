@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System; // Để dùng DateTime
+using System; 
 using System.Text.Json.Serialization;
 
 namespace DecalXeAPI.Models

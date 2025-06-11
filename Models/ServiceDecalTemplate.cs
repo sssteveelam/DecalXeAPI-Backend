@@ -3,11 +3,9 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace DecalXeAPI.Models
 {
-    // Bảng trung gian ServiceDecalTemplate
     public class ServiceDecalTemplate
     {
         // Khóa chính composite (tổng hợp từ 2 FK)
-        // Hoặc có thể dùng một PK riêng nếu muốn quản lý thêm thuộc tính cho mối liên kết này
         [Key]
         public string ServiceDecalTemplateID { get; set; } = Guid.NewGuid().ToString(); // PK riêng
 
@@ -21,7 +19,5 @@ namespace DecalXeAPI.Models
         // Navigation Property
         public DecalTemplate? DecalTemplate { get; set; }
 
-        // Có thể thêm các thuộc tính khác cho mối quan hệ này nếu cần
-        // Ví dụ: IsRecommended, OrderPriority, etc.
     }
 }
