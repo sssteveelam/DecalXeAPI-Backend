@@ -69,5 +69,7 @@ namespace DecalXeAPI.Models
         public ICollection<Feedback>? Feedbacks { get; set; }
         [JsonIgnore] // Để tránh lỗi vòng lặp JSON
         public ICollection<Warranty>? Warranties { get; set; }
+
+        public bool IsCustomDecal { get; set; } = false;
     }
 }

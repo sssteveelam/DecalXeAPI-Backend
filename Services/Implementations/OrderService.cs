@@ -142,6 +142,21 @@ o.AssignedEmployee.LastName.ToLower().Contains(queryParams.SearchTerm.ToLower())
                 }
             }
 
+
+            // Tự động gán IsCustomDecal nếu Order được liên kết với CustomServiceRequest
+            if (order.CustomServiceRequest != null)
+            {
+                order.IsCustomDecal = true;
+            }
+            else
+            {
+                order.IsCustomDecal = false; // Mặc định là false nếu không có CSR
+            }
+
+            _context.Orders.Add(order);
+            await _context.SaveChangesAsync();
+                        _logger.LogInformation("Đã tạo Order mới với ID: {OrderID}", order.OrderID);
+
             await _context.Entry(order).Reference(o => o.Customer).LoadAsync();
             await _context.Entry(order).Reference(o => o.AssignedEmployee).LoadAsync();
             await _context.Entry(order).Reference(o => o.CustomServiceRequest).LoadAsync();

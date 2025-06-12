@@ -85,7 +85,10 @@ CreateMap<DecalService, DecalServiceDto>()
                 .ForMember(dest => dest.CustomServiceRequestDescription, opt => opt.MapFrom(src => src.CustomServiceRequest != null ? src.CustomServiceRequest.Description : null))
                 .ForMember(dest => dest.LicensePlate, opt => opt.MapFrom(src => src.CustomerVehicle != null ? src.CustomerVehicle.LicensePlate : null))
                 .ForMember(dest => dest.CarModelName, opt => opt.MapFrom(src => src.CustomerVehicle != null && src.CustomerVehicle.CarModel != null ? src.CustomerVehicle.CarModel.ModelName : null))
-                .ForMember(dest => dest.CarBrandName, opt => opt.MapFrom(src => src.CustomerVehicle != null && src.CustomerVehicle.CarModel != null && src.CustomerVehicle.CarModel.CarBrand != null ? src.CustomerVehicle.CarModel.CarBrand.BrandName : null));
+                .ForMember(dest => dest.CarBrandName, opt => opt.MapFrom(src => src.CustomerVehicle != null && src.CustomerVehicle.CarModel != null && src.CustomerVehicle.CarModel.CarBrand != null ? src.CustomerVehicle.CarModel.CarBrand.BrandName : null))
+                .ForMember(dest => dest.IsCustomDecal, opt => opt.MapFrom(src => src.IsCustomDecal)); 
+
+
 
             // Ánh xạ cho OrderDetail (Cập nhật để ánh xạ các trường mới)
             CreateMap<OrderDetail, OrderDetailDto>()
@@ -172,7 +175,10 @@ CreateMap<DecalService, DecalServiceDto>()
                 .ForMember(dest => dest.TotalAmount, opt => opt.MapFrom(src => src.EstimatedCost))
                 .ForMember(dest => dest.OrderStatus, opt => opt.MapFrom(src => "New"))
                 .ForMember(dest => dest.CustomerID, opt => opt.Ignore())
-                .ForMember(dest => dest.CustomServiceRequest, opt => opt.Ignore());
+                .ForMember(dest => dest.CustomServiceRequest, opt => opt.Ignore())
+                .ForMember(dest => dest.IsCustomDecal, opt => opt.MapFrom(src => src.IsCustomDecal)); 
+
+
 
             // Ánh xạ DTO đầu vào cho RegisterDto (để tạo Account)
             CreateMap<RegisterDto, Account>()
