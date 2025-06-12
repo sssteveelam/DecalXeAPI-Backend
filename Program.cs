@@ -45,12 +45,15 @@ builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<IPromotionService, PromotionService>();
-builder.Services.AddScoped<IServiceProductService, ServiceProductService>(); // <-- THÊM DÒNG NÀY
-builder.Services.AddScoped<IDecalTemplateService, DecalTemplateService>(); // <-- THÊM DÒNG NÀY
-builder.Services.AddScoped<IServiceDecalTemplateService, ServiceDecalTemplateService>(); // <-- THÊM DÒNG NÀY
-builder.Services.AddScoped<ITimeSlotDefinitionService, TimeSlotDefinitionService>(); // <-- THÊM DÒNG NÀY
-builder.Services.AddScoped<IFeedbackService, FeedbackService>(); // <-- THÊM DÒNG NÀY
-builder.Services.AddScoped<IWarrantyService, WarrantyService>(); // <-- THÊM DÒNG NÀY
+builder.Services.AddScoped<IServiceProductService, ServiceProductService>();
+builder.Services.AddScoped<IDecalTemplateService, DecalTemplateService>();
+builder.Services.AddScoped<IServiceDecalTemplateService, ServiceDecalTemplateService>();
+builder.Services.AddScoped<ITimeSlotDefinitionService, TimeSlotDefinitionService>();
+builder.Services.AddScoped<IFeedbackService, FeedbackService>();
+builder.Services.AddScoped<IWarrantyService, WarrantyService>();
+builder.Services.AddScoped<IPrintingPriceDetailService, PrintingPriceDetailService>();
+builder.Services.AddScoped<IDesignCommentService, DesignCommentService>();
+builder.Services.AddScoped<IOrderCompletionImageService, OrderCompletionImageService>();
 // AddScoped nghĩa là một instance của OrderService sẽ được tạo một lần cho mỗi HTTP request.
 // Đây là lifetime phù hợp cho các services tương tác với DbContext.
 
