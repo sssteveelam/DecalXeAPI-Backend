@@ -12,7 +12,7 @@ using System; // Để sử dụng ArgumentException
 
 namespace DecalXeAPI.Services.Implementations
 {
-    public class DesignCommentService : IDesignCommentService // <-- Kế thừa từ IDesignCommentService
+    public class DesignCommentService : IDesignCommentService // Kế thừa từ IDesignCommentService
     {
         private readonly ApplicationDbContext _context;
         private readonly IMapper _mapper;
@@ -31,7 +31,7 @@ namespace DecalXeAPI.Services.Implementations
             // Bao gồm Design, SenderAccount và Role của SenderAccount để ánh xạ DTO
             var designComments = await _context.DesignComments
                                                 .Include(dc => dc.Design)
-                                                .Include(dc => dc.SenderAccount)
+                                                .Include(dc => dc.SenderAccount!) // Sử dụng ! để bỏ qua warning nullability
                                                     .ThenInclude(acc => acc.Role)
                                                 .ToListAsync();
             var designCommentDtos = _mapper.Map<List<DesignCommentDto>>(designComments);
@@ -43,7 +43,7 @@ namespace DecalXeAPI.Services.Implementations
             _logger.LogInformation("Yêu cầu lấy bình luận thiết kế với ID: {CommentID}", id);
             var designComment = await _context.DesignComments
                                                 .Include(dc => dc.Design)
-                                                .Include(dc => dc.SenderAccount)
+                                                .Include(dc => dc.SenderAccount!)
                                                     .ThenInclude(acc => acc.Role)
                                                 .FirstOrDefaultAsync(dc => dc.CommentID == id);
 
@@ -169,7 +169,7 @@ namespace DecalXeAPI.Services.Implementations
             return true;
         }
 
-        // --- HÀM HỖ TRỢ: KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (PUBLIC CHO INTERFACE) ---
+        // Hàm hỗ trợ: Kiểm tra sự tồn tại của các đối tượng (PUBLIC CHO INTERFACE)
         public async Task<bool> DesignCommentExistsAsync(string id)
         {
             return await _context.DesignComments.AnyAsync(e => e.CommentID == id);

@@ -32,7 +32,7 @@ namespace DecalXeAPI.Services.Implementations
             var orderDetails = await _context.OrderDetails
                                             .Include(od => od.Order)
                                             .Include(od => od.DecalService)
-                                                .ThenInclude(ds => ds.PrintingPriceDetail) // <-- MỚI: Include PrintingPriceDetail
+                                                .ThenInclude(ds => ds.PrintingPriceDetail) // Bao gồm PrintingPriceDetail
                                             .ToListAsync();
             var orderDetailDtos = _mapper.Map<List<OrderDetailDto>>(orderDetails);
             return orderDetailDtos;
@@ -45,7 +45,7 @@ namespace DecalXeAPI.Services.Implementations
             var orderDetail = await _context.OrderDetails
                                                 .Include(od => od.Order)
                                                 .Include(od => od.DecalService)
-                                                    .ThenInclude(ds => ds.PrintingPriceDetail) // <-- MỚI: Include PrintingPriceDetail
+                                                    .ThenInclude(ds => ds.PrintingPriceDetail) // Bao gồm PrintingPriceDetail
                                                 .FirstOrDefaultAsync(od => od.OrderDetailID == id);
 
             if (orderDetail == null)
@@ -79,7 +79,7 @@ namespace DecalXeAPI.Services.Implementations
             var service = await _context.DecalServices
                                         .Include(s => s.ServiceProducts!) // Sử dụng ! để bỏ qua warning nullability nếu chắc chắn ServiceProducts không null sau Include
                                             .ThenInclude(sp => sp.Product)
-                                        .Include(s => s.PrintingPriceDetail) // <-- MỚI: Bao gồm chi tiết giá in
+                                        .Include(s => s.PrintingPriceDetail) // Bao gồm chi tiết giá in
                                         .FirstOrDefaultAsync(s => s.ServiceID == orderDetail.ServiceID);
 
             if (service == null)
@@ -107,7 +107,7 @@ namespace DecalXeAPI.Services.Implementations
                         {
                             return (null, $"Sản phẩm '{sp.Product.ProductName}' không đủ tồn kho. Chỉ còn {sp.Product.StockQuantity} {sp.Product.Unit} trong kho, nhưng cần {quantityToDeduct} {sp.Product.Unit}.");
                         }
-                        sp.Product.StockQuantity -= (int)quantityToDeduct;
+                        sp.Product.StockQuantity -= (int)quantityToDeduct; // Giảm số lượng tồn kho
                         _context.Products.Update(sp.Product);
                     }
                 }
@@ -165,7 +165,7 @@ namespace DecalXeAPI.Services.Implementations
             var newService = await _context.DecalServices
                                             .Include(s => s.ServiceProducts!)
                                                 .ThenInclude(sp => sp.Product)
-                                            .Include(s => s.PrintingPriceDetail) // <-- MỚI: Bao gồm chi tiết giá in
+                                            .Include(s => s.PrintingPriceDetail) // Bao gồm chi tiết giá in
                                             .FirstOrDefaultAsync(s => s.ServiceID == orderDetail.ServiceID);
             if (newService == null)
             {
@@ -312,6 +312,7 @@ namespace DecalXeAPI.Services.Implementations
             decimal calculatedPrice = 0m;
 
             // 1. Tính giá dựa trên BasePricePerSqMeter và ActualAreaUsed
+            // Giả định ActualAreaUsed phải có giá trị cho dịch vụ cần tính giá phức tạp
             if (ppd.BasePricePerSqMeter > 0 && od.ActualAreaUsed.HasValue && od.ActualAreaUsed.Value > 0)
             {
                 calculatedPrice = ppd.BasePricePerSqMeter * od.ActualAreaUsed.Value;

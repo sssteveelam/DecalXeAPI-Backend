@@ -36,7 +36,7 @@ namespace DecalXeAPI.Models
         [JsonIgnore] // Tránh lỗi vòng lặp JSON khi include Order từ CustomServiceRequest
         public CustomServiceRequest? CustomServiceRequest { get; set; } // Navigation Property cho yêu cầu tùy chỉnh
 
-        // --- CỘT VÀ NAVIGATION PROPERTIES MỚI TỪ YÊU CẦU REVIEW ---
+        // --- CỘT VÀ NAVIGATION PROPERTIES MỚI TỪ YÊU CẦU REVIEW (đã có từ bước 2.1.5) ---
         [ForeignKey("CustomerVehicle")] // Khóa ngoại tới xe của khách hàng
         public string? VehicleID { get; set; } // Xe được dán decal (Nullable)
         public CustomerVehicle? CustomerVehicle { get; set; } // Navigation Property
@@ -50,11 +50,7 @@ namespace DecalXeAPI.Models
         [MaxLength(50)]
         public string? Priority { get; set; } // Độ ưu tiên (ví dụ: "Low", "Medium", "High")
 
-        // Navigation Properties cho các bảng mới được tạo
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
-        public ICollection<OrderStageHistory>? OrderStageHistories { get; set; } // Lịch sử các giai đoạn của Order
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
-        public ICollection<OrderCompletionImage>? OrderCompletionImages { get; set; } // Ảnh sau khi hoàn tất
+        public bool IsCustomDecal { get; set; } = false; // <-- MỚI: Đánh dấu đây có phải đơn hàng decal tùy chỉnh không
 
         // --- NAVIGATION PROPERTIES HIỆN CÓ (Giữ nguyên) ---
         [JsonIgnore] // Để tránh lỗi vòng lặp JSON
@@ -69,7 +65,9 @@ namespace DecalXeAPI.Models
         public ICollection<Feedback>? Feedbacks { get; set; }
         [JsonIgnore] // Để tránh lỗi vòng lặp JSON
         public ICollection<Warranty>? Warranties { get; set; }
-
-        public bool IsCustomDecal { get; set; } = false;
+        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
+        public ICollection<OrderStageHistory>? OrderStageHistories { get; set; } // Lịch sử các giai đoạn của Order
+        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
+        public ICollection<OrderCompletionImage>? OrderCompletionImages { get; set; } // Ảnh sau khi hoàn tất
     }
 }

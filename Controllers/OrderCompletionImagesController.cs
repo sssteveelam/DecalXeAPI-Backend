@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using DecalXeAPI.Data; // Vẫn cần DbContext cho các hàm Exists cơ bản
+using Microsoft.EntityFrameworkCore; // Vẫn cần DbContext cho các hàm Exists cơ bản
+using DecalXeAPI.Data; // Vẫn cần ApplicationDbContext cho các hàm Exists
 using DecalXeAPI.Models;
 using DecalXeAPI.DTOs;
 using DecalXeAPI.Services.Interfaces; // Để sử dụng IOrderCompletionImageService

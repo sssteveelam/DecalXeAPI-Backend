@@ -54,6 +54,8 @@ builder.Services.AddScoped<IWarrantyService, WarrantyService>();
 builder.Services.AddScoped<IPrintingPriceDetailService, PrintingPriceDetailService>();
 builder.Services.AddScoped<IDesignCommentService, DesignCommentService>();
 builder.Services.AddScoped<IOrderCompletionImageService, OrderCompletionImageService>();
+builder.Services.AddScoped<IDesignCommentService, DesignCommentService>();
+builder.Services.AddScoped<IOrderCompletionImageService, OrderCompletionImageService>();
 // AddScoped nghĩa là một instance của OrderService sẽ được tạo một lần cho mỗi HTTP request.
 // Đây là lifetime phù hợp cho các services tương tác với DbContext.
 

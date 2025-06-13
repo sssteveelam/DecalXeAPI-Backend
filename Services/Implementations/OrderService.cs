@@ -161,6 +161,23 @@ o.AssignedEmployee.LastName.ToLower().Contains(queryParams.SearchTerm.ToLower())
             await _context.Entry(order).Reference(o => o.AssignedEmployee).LoadAsync();
             await _context.Entry(order).Reference(o => o.CustomServiceRequest).LoadAsync();
 
+
+            // Tự động gán IsCustomDecal nếu Order được liên kết với CustomServiceRequest
+            // (Kiểm tra CustomServiceRequest ID thay vì đối tượng để đảm bảo đúng logic khi CSR là đầu vào của Order)
+            if (!string.IsNullOrEmpty(order.CustomServiceRequest?.CustomRequestID))
+            {
+                order.IsCustomDecal = true;
+            }
+            else
+            {
+                order.IsCustomDecal = false; // Mặc định là false nếu không có CSR
+            }
+
+            _context.Orders.Add(order);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Đã tạo Order mới với ID: {OrderID}", order.OrderID);
+
+
             var orderDto = _mapper.Map<OrderDto>(order);
             return orderDto;
         }

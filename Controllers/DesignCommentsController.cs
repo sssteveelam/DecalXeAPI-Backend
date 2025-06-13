@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using DecalXeAPI.Data; // Vẫn cần DbContext cho các hàm Exists cơ bản
+using Microsoft.EntityFrameworkCore; // Vẫn cần DbContext cho các hàm Exists cơ bản
+using DecalXeAPI.Data; // Vẫn cần ApplicationDbContext cho các hàm Exists
 using DecalXeAPI.Models;
 using DecalXeAPI.DTOs;
-using DecalXeAPI.Services.Interfaces; // <-- THÊM DÒNG NÀY (Để sử dụng IDesignCommentService)
+using DecalXeAPI.Services.Interfaces; // Để sử dụng IDesignCommentService
 using AutoMapper;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Authorization;
@@ -19,11 +19,11 @@ namespace DecalXeAPI.Controllers
     public class DesignCommentsController : ControllerBase
     {
         private readonly ApplicationDbContext _context; // Vẫn giữ để dùng các hàm Exists cơ bản
-        private readonly IDesignCommentService _designCommentService; // <-- KHAI BÁO BIẾN CHO SERVICE
+        private readonly IDesignCommentService _designCommentService; // Khai báo biến cho Service
         private readonly IMapper _mapper;
         private readonly ILogger<DesignCommentsController> _logger;
 
-        public DesignCommentsController(ApplicationDbContext context, IDesignCommentService designCommentService, IMapper mapper, ILogger<DesignCommentsController> logger) // <-- TIÊM IDesignCommentService
+        public DesignCommentsController(ApplicationDbContext context, IDesignCommentService designCommentService, IMapper mapper, ILogger<DesignCommentsController> logger) // Tiêm IDesignCommentService
         {
             _context = context;
             _designCommentService = designCommentService;
@@ -87,6 +87,7 @@ namespace DecalXeAPI.Controllers
             var currentAccountID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (User.IsInRole("Customer") && designComment.SenderAccountID != currentAccountID)
             {
+                _logger.LogWarning("Tài khoản Customer {CurrentAccountID} cố gắng gửi bình luận bằng tài khoản của người khác: {SenderAccountID}.", currentAccountID, designComment.SenderAccountID);
                 return Forbid("Bạn chỉ có thể gửi bình luận bằng tài khoản của chính mình.");
             }
 
@@ -96,7 +97,7 @@ namespace DecalXeAPI.Controllers
                 _logger.LogInformation("Đã tạo bình luận thiết kế mới với ID: {CommentID}", createdDesignCommentDto.CommentID);
                 return CreatedAtAction(nameof(GetDesignComment), new { id = createdDesignCommentDto.CommentID }, createdDesignCommentDto);
             }
-            catch (ArgumentException ex)
+            catch (ArgumentException ex) // Bắt lỗi từ Service nếu FK không hợp lệ
             {
                 _logger.LogError(ex, "Lỗi nghiệp vụ khi tạo bình luận thiết kế: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
@@ -130,8 +131,8 @@ namespace DecalXeAPI.Controllers
 
             // Logic kiểm tra người cập nhật có phải người tạo comment không (nếu muốn hạn chế)
             // var currentAccountID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            // var existingComment = await _designCommentService.GetDesignCommentByIdAsync(id);
-            // if (User.IsInRole("Customer") && existingComment != null && existingComment.SenderAccountID != currentAccountID)
+            // var existingCommentDto = await _designCommentService.GetDesignCommentByIdAsync(id);
+            // if (User.IsInRole("Customer") && existingCommentDto != null && existingCommentDto.SenderAccountID != currentAccountID)
             // {
             //     return Forbid("Bạn chỉ có thể cập nhật bình luận của chính mình.");
             // }

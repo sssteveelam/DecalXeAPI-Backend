@@ -15,16 +15,16 @@ namespace DecalXeAPI.DTOs
         public string? CustomServiceRequestID { get; set; } // ID của yêu cầu tùy chỉnh nếu có
         public string? CustomServiceRequestDescription { get; set; } // Mô tả yêu cầu tùy chỉnh
 
-        // --- CỘT VÀ THUỘC TÍNH MỚI TỪ YÊU CẦU REVIEW ---
+        // --- CỘT VÀ THUỘC TÍNH MỚI TỪ YÊU CẦU REVIEW (đã có từ bước 3.1) ---
         public string? VehicleID { get; set; } // ID xe liên kết
-        public string? LicensePlate { get; set; } // Biển số xe liên kết
-        public string? CarModelName { get; set; } // Tên mẫu xe liên kết
-        public string? CarBrandName { get; set; } // Tên hãng xe liên kết
+        public string? LicensePlate { get; set; } = string.Empty; // Biển số xe liên kết
+        public string? CarModelName { get; set; } = string.Empty; // Tên mẫu xe liên kết
+        public string? CarBrandName { get; set; } = string.Empty; // Tên hãng xe liên kết
 
         public DateTime? ExpectedArrivalTime { get; set; } // Thời gian dự kiến đến
         public string CurrentStage { get; set; } = string.Empty; // Giai đoạn hiện tại của đơn hàng
         public string? Priority { get; set; } // Độ ưu tiên
-        public bool IsCustomDecal { get; set; } // <-- MỚI: Đánh dấu đây có phải đơn hàng decal tùy chỉnh không
 
+        public bool IsCustomDecal { get; set; } // <-- MỚI: Đánh dấu đây có phải đơn hàng decal tùy chỉnh không
     }
 }

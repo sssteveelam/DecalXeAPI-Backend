@@ -497,6 +497,9 @@ namespace DecalXeAPI.Migrations
                     b.Property<DateTime?>("ExpectedArrivalTime")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("IsCustomDecal")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime>("OrderDate")
                         .HasColumnType("timestamp with time zone");
 

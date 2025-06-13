@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace DecalXeAPI.Migrations
 {
     /// <inheritdoc />
-    public partial class UpdateDatabaseForReview : Migration
+    public partial class FullERDUpdate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -48,6 +48,13 @@ namespace DecalXeAPI.Migrations
                 table: "Orders",
                 type: "timestamp with time zone",
                 nullable: true);
+
+            migrationBuilder.AddColumn<bool>(
+                name: "IsCustomDecal",
+                table: "Orders",
+                type: "boolean",
+                nullable: false,
+                defaultValue: false);
 
             migrationBuilder.AddColumn<string>(
                 name: "Priority",
@@ -438,6 +445,10 @@ namespace DecalXeAPI.Migrations
 
             migrationBuilder.DropColumn(
                 name: "ExpectedArrivalTime",
+                table: "Orders");
+
+            migrationBuilder.DropColumn(
+                name: "IsCustomDecal",
                 table: "Orders");
 
             migrationBuilder.DropColumn(

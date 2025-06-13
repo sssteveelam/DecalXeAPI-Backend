@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DecalXeAPI.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250611163807_UpdateDatabaseForReview")]
-    partial class UpdateDatabaseForReview
+    [Migration("20250612081459_FullERDUpdate")]
+    partial class FullERDUpdate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -499,6 +499,9 @@ namespace DecalXeAPI.Migrations
 
                     b.Property<DateTime?>("ExpectedArrivalTime")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsCustomDecal")
+                        .HasColumnType("boolean");
 
                     b.Property<DateTime>("OrderDate")
                         .HasColumnType("timestamp with time zone");
