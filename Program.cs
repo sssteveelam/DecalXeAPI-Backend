@@ -184,5 +184,24 @@ app.UseAuthorization();
 // 6. Map các Controller
 app.MapControllers();
 
+
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<ApplicationDbContext>();
+        context.Database.Migrate(); // <-- Lệnh chạy tất cả migrations chưa được áp dụng
+        // Sau khi Migrate, mình có thể muốn chèn dữ liệu seed ban đầu nếu DB trống.
+        // Ví dụ: SeedData.Initialize(services);
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Đã xảy ra lỗi khi di chuyển database.");
+        // Có thể re-throw hoặc xử lý tùy theo yêu cầu
+    }
+}
+
 // Khởi chạy ứng dụng
 app.Run();
