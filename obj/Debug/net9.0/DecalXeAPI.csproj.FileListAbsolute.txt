@@ -142,3 +142,4 @@ C:\Users\WIN10\Desktop\decal-xe-backend\DecalXeAPI\bin\Debug\net9.0\System.Ident
 C:\Users\WIN10\Desktop\decal-xe-backend\DecalXeAPI\bin\Debug\net9.0\Swashbuckle.AspNetCore.Swagger.dll
 C:\Users\WIN10\Desktop\decal-xe-backend\DecalXeAPI\bin\Debug\net9.0\Swashbuckle.AspNetCore.SwaggerGen.dll
 C:\Users\WIN10\Desktop\decal-xe-backend\DecalXeAPI\bin\Debug\net9.0\Swashbuckle.AspNetCore.SwaggerUI.dll
+C:\Users\WIN10\Desktop\decal-xe-backend\DecalXeAPI\bin\Debug\net9.0\appsettings.Production.json
