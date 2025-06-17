@@ -186,9 +186,11 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 // 3. Swagger UI (Chỉ dùng trong môi trường Phát triển)
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(options => { options.SwaggerEndpoint("/swagger/v1/swagger.json", "DecalXeAPI v1"); });
+
 }
+
+ app.UseSwagger();
+    app.UseSwaggerUI(options => { options.SwaggerEndpoint("/swagger/v1/swagger.json", "DecalXeAPI v1"); });
 
 // 4. Sử dụng CORS
 app.UseCors("AllowSpecificOrigin");
