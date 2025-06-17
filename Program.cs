@@ -156,8 +156,8 @@ builder.Services.AddCors(options =>
 // 7. Cấu hình CORS (Cross-Origin Resource Sharing)
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowSpecificOrigin", // Tên policy giữ nguyên
-        policy => policy.AllowAnyOrigin() // <-- THAY ĐỔI TỪ WithOrigins SANG AllowAnyOrigin
+    options.AddPolicy("AllowSpecificOrigin", 
+        policy => policy.AllowAnyOrigin() 
                         .AllowAnyHeader()
                         .AllowAnyMethod()
                         .AllowCredentials());
