@@ -153,7 +153,21 @@ builder.Services.AddCors(options =>
 });
 
 
+// 7. Cấu hình CORS (Cross-Origin Resource Sharing)
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowSpecificOrigin", // Tên policy giữ nguyên
+        policy => policy.AllowAnyOrigin() // <-- THAY ĐỔI TỪ WithOrigins SANG AllowAnyOrigin
+                        .AllowAnyHeader()
+                        .AllowAnyMethod()
+                        .AllowCredentials());
+});
+
+
 var app = builder.Build(); // <-- app được Build ở đây
+
+
+
 
 // --- MỚI: TỰ ĐỘNG CHẠY MIGRATION KHI ỨNG DỤNG KHỞI ĐỘNG (ĐẶT Ở ĐÂY) ---
 // Đảm bảo Migration chạy trước khi ứng dụng bắt đầu nhận request
@@ -184,11 +198,6 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 // app.UseHttpsRedirection();
 
 // 3. Swagger UI (Chỉ dùng trong môi trường Phát triển)
-if (app.Environment.IsDevelopment())
-{
-
-}
-
  app.UseSwagger();
     app.UseSwaggerUI(options => { options.SwaggerEndpoint("/swagger/v1/swagger.json", "DecalXeAPI v1"); });
 
