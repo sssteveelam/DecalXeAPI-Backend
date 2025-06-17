@@ -4,13 +4,15 @@ using DecalXeAPI.Middleware;
 using DecalXeAPI.Services.Interfaces;
 using DecalXeAPI.Services.Implementations;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore; // Cần cho context.Database.Migrate()
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
-using Npgsql; // Cần cho việc xử lý Connection String của Railway
-using System; // Cần cho Uri và Environment
-using System.Linq; // Cần cho Linq (ví dụ: .Last() cho URI segments)
+using Npgsql;
+using System;
+using System.Linq;
+using Microsoft.Extensions.DependencyInjection; // Cần cho CreateScope(), GetRequiredService<T>()
+using Microsoft.Extensions.Logging; // Cần cho ILogger trong khối Migration
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,39 +22,33 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. Cấu hình DbContext (Entity Framework Core)
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
-    string? connectionString; // <-- KHAI BÁO BIẾN CÓ PHẠM VI RỘNG HƠN
-    string? railwayDatabaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL"); // <-- KHAI BÁO BIẾN CÓ PHẠM VI RỘNG HƠN
+    string? connectionString;
+    string? railwayDatabaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
 
-    // Nếu có DATABASE_URL (ví dụ: chạy trên Railway), thì ưu tiên dùng nó
     if (!string.IsNullOrEmpty(railwayDatabaseUrl))
     {
         try
         {
-            // Phân tích URL của Railway để xây dựng Connection String cho Npgsql
             var uri = new Uri(railwayDatabaseUrl);
-            var userInfo = uri.UserInfo.Split(':'); // Tách username và password
+            var userInfo = uri.UserInfo.Split(':');
             var host = uri.Host;
             var port = uri.Port;
             var username = userInfo[0];
             var password = userInfo[1];
-            var database = uri.Segments.Last(); // Lấy tên database từ cuối URL Path
+            var database = uri.Segments.Last();
 
-            // Xây dựng lại Connection String theo định dạng Npgsql
             connectionString = $"Host={host};Port={port};Username={username};Password={password};Database={database};Ssl Mode=Require;Trust Server Certificate=true";
         }
         catch (Exception ex)
         {
-            // Ném lỗi nếu không thể phân tích DATABASE_URL
             throw new InvalidOperationException($"Không thể phân tích biến môi trường DATABASE_URL: {railwayDatabaseUrl}. Chi tiết: {ex.Message}");
         }
     }
     else
     {
-        // Nếu không có DATABASE_URL (ví dụ: chạy local), thì lấy từ appsettings.json
         connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
     }
 
-    // Nếu connectionString vẫn rỗng hoặc null sau khi thử cả hai cách, ném lỗi
     if (string.IsNullOrEmpty(connectionString))
     {
         throw new InvalidOperationException("Connection string 'DefaultConnection' hoặc biến môi trường 'DATABASE_URL' không được cấu hình.");
@@ -150,22 +146,42 @@ builder.Services.AddAuthorization();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigin",
-        policy => policy.WithOrigins("http://localhost:3000", "http://localhost:3001") // Cho phép Frontend cục bộ
+        policy => policy.WithOrigins("http://localhost:3000", "http://localhost:3001")
                         .AllowAnyHeader()
                         .AllowAnyMethod()
                         .AllowCredentials());
 });
 
 
-var app = builder.Build();
+var app = builder.Build(); // <-- app được Build ở đây
+
+// --- MỚI: TỰ ĐỘNG CHẠY MIGRATION KHI ỨNG DỤNG KHỞI ĐỘNG (ĐẶT Ở ĐÂY) ---
+// Đảm bảo Migration chạy trước khi ứng dụng bắt đầu nhận request
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<ApplicationDbContext>();
+        context.Database.Migrate(); // <-- Lệnh chạy tất cả migrations chưa được áp dụng
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Đã xảy ra lỗi khi di chuyển database.");
+        // Quan trọng: Nếu migration thất bại nghiêm trọng, có thể muốn dừng ứng dụng
+        // throw; // Ném lỗi để ứng dụng không khởi động nếu database không sẵn sàng
+    }
+}
+// --- KẾT THÚC PHẦN TỰ ĐỘNG CHẠY MIGRATION ---
+
 
 // --- CẤU HÌNH CÁC MIDDLEWARE (PIPELINE XỬ LÝ REQUEST) ---
-
 // 1. Global Exception Handling Middleware
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 // 2. Chuyển hướng HTTP sang HTTPS
-// app.UseHttpsRedirection(); // Mặc định tắt, có thể bật nếu cần
+// app.UseHttpsRedirection();
 
 // 3. Swagger UI (Chỉ dùng trong môi trường Phát triển)
 if (app.Environment.IsDevelopment())
@@ -183,25 +199,6 @@ app.UseAuthorization();
 
 // 6. Map các Controller
 app.MapControllers();
-
-
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-    try
-    {
-        var context = services.GetRequiredService<ApplicationDbContext>();
-        context.Database.Migrate(); // <-- Lệnh chạy tất cả migrations chưa được áp dụng
-        // Sau khi Migrate, mình có thể muốn chèn dữ liệu seed ban đầu nếu DB trống.
-        // Ví dụ: SeedData.Initialize(services);
-    }
-    catch (Exception ex)
-    {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Đã xảy ra lỗi khi di chuyển database.");
-        // Có thể re-throw hoặc xử lý tùy theo yêu cầu
-    }
-}
 
 // Khởi chạy ứng dụng
 app.Run();
