@@ -115,3 +115,8 @@ C:\Users\WIN10\Desktop\decal-xe-backend\DecalXeAPI\obj\Debug\net8.0\refint\Decal
 C:\Users\WIN10\Desktop\decal-xe-backend\DecalXeAPI\obj\Debug\net8.0\DecalXeAPI.pdb
 C:\Users\WIN10\Desktop\decal-xe-backend\DecalXeAPI\obj\Debug\net8.0\DecalXeAPI.genruntimeconfig.cache
 C:\Users\WIN10\Desktop\decal-xe-backend\DecalXeAPI\obj\Debug\net8.0\ref\DecalXeAPI.dll
+C:\Users\WIN10\Desktop\decal-xe-backend\DecalXeAPI\bin\Debug\net8.0\BouncyCastle.Cryptography.dll
+C:\Users\WIN10\Desktop\decal-xe-backend\DecalXeAPI\bin\Debug\net8.0\MailKit.dll
+C:\Users\WIN10\Desktop\decal-xe-backend\DecalXeAPI\bin\Debug\net8.0\MimeKit.dll
+C:\Users\WIN10\Desktop\decal-xe-backend\DecalXeAPI\bin\Debug\net8.0\System.Security.Cryptography.Pkcs.dll
+C:\Users\WIN10\Desktop\decal-xe-backend\DecalXeAPI\bin\Debug\net8.0\runtimes\win\lib\net8.0\System.Security.Cryptography.Pkcs.dll

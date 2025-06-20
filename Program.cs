@@ -87,7 +87,7 @@ builder.Services.AddScoped<IWarrantyService, WarrantyService>();
 builder.Services.AddScoped<IPrintingPriceDetailService, PrintingPriceDetailService>();
 builder.Services.AddScoped<IDesignCommentService, DesignCommentService>();
 builder.Services.AddScoped<IOrderCompletionImageService, OrderCompletionImageService>();
-
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // 4. Cấu hình Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();

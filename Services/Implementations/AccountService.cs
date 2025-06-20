@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using DecalXeAPI.Data;
 using DecalXeAPI.DTOs;
 using DecalXeAPI.Models;
-using DecalXeAPI.Services.Interfaces;
+using DecalXeAPI.Services.Interfaces; // Cần cho IEmailService
 using AutoMapper;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
@@ -18,12 +18,14 @@ namespace DecalXeAPI.Services.Implementations
         private readonly ApplicationDbContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<AccountService> _logger;
+        private readonly IEmailService _emailService; // <-- KHAI BÁO BIẾN EMAIL SERVICE
 
-        public AccountService(ApplicationDbContext context, IMapper mapper, ILogger<AccountService> logger)
+        public AccountService(ApplicationDbContext context, IMapper mapper, ILogger<AccountService> logger, IEmailService emailService) // <-- TIÊM EMAIL SERVICE
         {
             _context = context;
             _mapper = mapper;
             _logger = logger;
+            _emailService = emailService; // Gán Email Service
         }
 
         public async Task<IEnumerable<AccountDto>> GetAccountsAsync()
@@ -158,6 +160,13 @@ namespace DecalXeAPI.Services.Implementations
                 // để tránh lộ thông tin người dùng. Tuy nhiên, không gửi email.
                 return (true, null);
             }
+            
+            // Đảm bảo tài khoản có email để gửi (nếu dùng email làm kênh gửi)
+            if (string.IsNullOrEmpty(account.Email))
+            {
+                 _logger.LogWarning("Tài khoản {Username} không có email để gửi đặt lại mật khẩu.", account.Username);
+                 return (false, "Tài khoản không có email liên kết để gửi đặt lại mật khẩu.");
+            }
 
             // 2. Tạo Token đặt lại mật khẩu (ví dụ: GUID hoặc chuỗi ngẫu nhiên)
             var resetToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)); // Token ngẫu nhiên, dài
@@ -168,10 +177,26 @@ namespace DecalXeAPI.Services.Implementations
             await _context.SaveChangesAsync();
             _logger.LogInformation("Đã tạo Password Reset Token cho Account {AccountID}. Token hết hạn lúc {ExpiryTime}", account.AccountID, account.PasswordResetTokenExpiry);
 
-            // 3. (Giả lập) Gửi email chứa link đặt lại mật khẩu
-            // Trong môi trường thực tế, bạn sẽ gọi một dịch vụ gửi email ở đây
-            // Link sẽ có dạng: yourfrontend.com/reset-password?token={resetToken}
-            _logger.LogInformation("Giả lập: Đã gửi email đặt lại mật khẩu đến {Email} với token: {Token}", account.Email ?? account.Username, resetToken);
+            // 3. Gửi email chứa link đặt lại mật khẩu THẬT
+            var resetLink = $"YOUR_FRONTEND_RESET_PASSWORD_URL?token={resetToken}"; // <-- ĐÂY LÀ LINK ĐẾN FRONTEND CỦA BẠN
+            var emailSubject = "Yêu cầu đặt lại mật khẩu cho tài khoản DecalXeAPI của bạn";
+            var emailBody = $@"
+                <p>Xin chào {account.Username},</p>
+                <p>Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản của mình trên hệ thống DecalXeAPI.</p>
+                <p>Vui lòng click vào đường link dưới đây để đặt lại mật khẩu của bạn:</p>
+                <p><a href='{resetLink}'>Đặt lại mật khẩu của bạn</a></p>
+                <p>Đường link này sẽ hết hạn trong 1 giờ.</p>
+                <p>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
+                <p>Trân trọng,</p>
+                <p>Hệ thống Decal Xe</p>";
+
+            var emailSent = await _emailService.SendEmailAsync(account.Email, emailSubject, emailBody); // <-- GỌI EMAIL SERVICE THẬT
+
+            if (!emailSent)
+            {
+                _logger.LogError("Không thể gửi email đặt lại mật khẩu đến {RecipientEmail}.", account.Email);
+                return (false, "Không thể gửi email đặt lại mật khẩu. Vui lòng thử lại sau.");
+            }
 
             return (true, null);
         }
@@ -181,7 +206,7 @@ namespace DecalXeAPI.Services.Implementations
         {
             _logger.LogInformation("Yêu cầu đặt lại mật khẩu bằng Token: {Token}", request.Token);
 
-            // 1. Tìm tài khoản bằng Token
+            // 1. Tìm tài khoản bằng Token và kiểm tra hết hạn
             var account = await _context.Accounts
                                         .FirstOrDefaultAsync(a => a.PasswordResetToken == request.Token && a.PasswordResetTokenExpiry > DateTime.UtcNow);
 
