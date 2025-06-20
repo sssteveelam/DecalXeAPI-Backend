@@ -31,6 +31,15 @@ namespace DecalXeAPI.Models
         [JsonIgnore] // Để tránh lỗi vòng lặp JSON
         public Employee? Employee { get; set; }
 
+        // --- CỘT MỚI CHO TÍNH NĂNG QUÊN MẬT KHẨU ---
+        [MaxLength(255)] // Độ dài của token
+        public string? PasswordResetToken { get; set; } // Token dùng để reset mật khẩu (có thể null)
+
+        public DateTime? PasswordResetTokenExpiry { get; set; } // Thời gian hết hạn của token (có thể null)
+
+
+
+
         // --- NAVIGATION PROPERTY MỚI TỪ YÊU CẦU REVIEW ---
         [JsonIgnore] // Để tránh lỗi vòng lặp JSON
         public ICollection<DesignComment>? DesignComments { get; set; } // Các bình luận thiết kế mà tài khoản này đã gửi
