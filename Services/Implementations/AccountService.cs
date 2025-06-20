@@ -9,7 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System;
-using System.Security.Cryptography; // Vẫn giữ nếu sau này cần hash mật khẩu an toàn
+// using System.Security.Cryptography; // <-- ĐÃ XÓA DÒNG NÀY VÌ KHÔNG TẠO TOKEN NỮA
 
 namespace DecalXeAPI.Services.Implementations
 {
@@ -18,14 +18,14 @@ namespace DecalXeAPI.Services.Implementations
         private readonly ApplicationDbContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<AccountService> _logger;
-        private readonly IEmailService _emailService; // <-- Vẫn giữ Email Service nếu muốn dùng cho mục đích khác
+        // private readonly IEmailService _emailService; // <-- ĐÃ XÓA DÒNG NÀY VÌ KHÔNG DÙNG EMAIL NỮA
 
-        public AccountService(ApplicationDbContext context, IMapper mapper, ILogger<AccountService> logger, IEmailService emailService)
+        public AccountService(ApplicationDbContext context, IMapper mapper, ILogger<AccountService> logger /*, IEmailService emailService */) // <-- BỎ TIÊM IEmailService
         {
             _context = context;
             _mapper = mapper;
             _logger = logger;
-            _emailService = emailService;
+            // _emailService = emailService;
         }
 
         public async Task<IEnumerable<AccountDto>> GetAccountsAsync()
@@ -143,7 +143,7 @@ namespace DecalXeAPI.Services.Implementations
             return true;
         }
 
-        // --- PHƯƠNG THỨC MỚI CHO TÍNH NĂNG ĐỔI MẬT KHẨU (KHÔNG DÙNG TOKEN RESET) ---
+        // --- PHƯƠNG THỨC MỚI CHO TÍNH NĂNG ĐỔI MẬT KHẨU (CÓ XÁC MINH MẬT KHẨU CŨ) ---
         // Yêu cầu đổi mật khẩu (xác minh mật khẩu cũ và đặt mật khẩu mới)
         public async Task<(bool Success, string? ErrorMessage)> ChangePasswordAsync(string accountId, ChangePasswordRequestDto request)
         {
@@ -177,7 +177,6 @@ namespace DecalXeAPI.Services.Implementations
                 return (false, "Mật khẩu mới phải có ít nhất 6 ký tự.");
             }
 
-
             // 4. Hash mật khẩu mới (Nếu bạn đang hash mật khẩu khi tạo tài khoản, hãy hash ở đây)
             account.PasswordHash = request.NewPassword; // Tạm thời lưu plaintext, thực tế PHẢI HASH
 
@@ -187,6 +186,41 @@ namespace DecalXeAPI.Services.Implementations
 
             return (true, null);
         }
+
+        // --- MỚI: PHƯƠNG THỨC CHO TÍNH NĂNG QUÊN MẬT KHẨU (ĐƠN GIẢN: RESET BẰNG USERNAME) ---
+        // Người dùng chỉ cần nhập đúng username là cho đổi pass mới
+        public async Task<(bool Success, string? ErrorMessage)> ResetPasswordByUsernameAsync(ResetPasswordByUsernameDto request)
+        {
+            _logger.LogInformation("Yêu cầu đặt lại mật khẩu bằng Username: {Username}", request.Username);
+
+            // 1. Tìm tài khoản bằng Username
+            var account = await _context.Accounts
+                                        .FirstOrDefaultAsync(a => a.Username == request.Username);
+
+            if (account == null)
+            {
+                _logger.LogWarning("Không tìm thấy tài khoản cho yêu cầu đặt lại mật khẩu bằng Username: {Username}. (Để bảo mật, không tiết lộ tài khoản có tồn tại hay không).", request.Username);
+                // Để bảo mật, luôn trả về thành công để tránh lộ thông tin người dùng.
+                return (true, null);
+            }
+
+            // 2. Kiểm tra mật khẩu mới và xác nhận
+            if (request.NewPassword != request.ConfirmNewPassword)
+            {
+                _logger.LogWarning("Mật khẩu mới và xác nhận mật khẩu không khớp cho Account {AccountID} khi reset bằng Username", account.AccountID);
+                return (false, "Mật khẩu mới và xác nhận mật khẩu không khớp.");
+            }
+
+            // 3. Hash mật khẩu mới
+            account.PasswordHash = request.NewPassword; // Tạm thời lưu plaintext, thực tế PHẢI HASH
+
+            _context.Accounts.Update(account);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Mật khẩu cho Account {AccountID} đã được đặt lại thành công bằng Username.", account.AccountID);
+
+            return (true, null);
+        }
+
 
         // --- HÀM HỖ TRỢ: KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (PUBLIC CHO INTERFACE) ---
         public async Task<bool> AccountExistsAsync(string id)

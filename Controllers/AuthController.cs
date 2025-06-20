@@ -2,11 +2,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DecalXeAPI.Data;
 using DecalXeAPI.Models;
-using DecalXeAPI.DTOs; // Cần cho LoginDto, RegisterDto, ChangePasswordRequestDto
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
+using DecalXeAPI.DTOs; // Cần cho LoginDto, RegisterDto, ChangePasswordRequestDto, ResetPasswordByUsernameDto
+using Microsoft.IdentityModel.Tokens; // Vẫn cần cho JWT Token generation
+using System.IdentityModel.Tokens.Jwt; // Vẫn cần cho JWT Token generation
+using System.Security.Claims; // Vẫn cần cho JWT Token generation
+using System.Text; // Vẫn cần cho JWT Token generation
 using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
@@ -33,7 +33,7 @@ namespace DecalXeAPI.Controllers
             _mapper = mapper;
         }
 
-        // API: POST api/Auth/register
+        // API: POST /api/Auth/register
         [HttpPost("register")]
         public async Task<ActionResult<string>> Register([FromBody] RegisterDto registerDto)
         {
@@ -50,7 +50,7 @@ namespace DecalXeAPI.Controllers
             }
         }
 
-        // API: POST api/Auth/login
+        // API: POST /api/Auth/login
         [HttpPost("login")]
         public async Task<ActionResult<string>> Login([FromBody] LoginDto loginDto)
         {
@@ -78,15 +78,13 @@ namespace DecalXeAPI.Controllers
             return Ok(token);
         }
 
-        // --- API MỚI CHO TÍNH NĂNG ĐỔI MẬT KHẨU ---
+        // --- API CHO TÍNH NĂNG ĐỔI MẬT KHẨU (CÓ XÁC MINH MẬT KHẨU CŨ) ---
 
-        // API: PUT api/Auth/change-password
-        // Người dùng đã đăng nhập đổi mật khẩu
+        // API: PUT /api/Auth/change-password
         [HttpPut("change-password")]
         [Authorize] // Yêu cầu người dùng phải đăng nhập để đổi mật khẩu của chính họ
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequestDto request)
         {
-            // Lấy AccountID của người dùng hiện tại từ JWT Token
             var accountId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
             if (string.IsNullOrEmpty(accountId))
@@ -100,15 +98,39 @@ namespace DecalXeAPI.Controllers
 
                 if (!success)
                 {
-                    return BadRequest(errorMessage); // Trả về lỗi nếu mật khẩu cũ sai, hoặc mật khẩu mới không khớp
+                    return BadRequest(errorMessage);
                 }
 
                 return Ok("Mật khẩu đã được đổi thành công.");
             }
             catch (Exception ex)
             {
-                // Bắt các lỗi không mong muốn khác từ Service
                 return StatusCode(500, "Đã xảy ra lỗi nội bộ máy chủ khi đổi mật khẩu.");
+            }
+        }
+
+        // --- MỚI: API CHO TÍNH NĂNG QUÊN MẬT KHẨU (ĐƠN GIẢN: RESET BẰNG USERNAME) ---
+
+        // API: POST /api/Auth/reset-password-by-username
+        // Người dùng chỉ cần nhập username và mật khẩu mới (không cần email/token)
+        [HttpPost("reset-password-by-username")]
+        [AllowAnonymous] // API này không cần đăng nhập
+        public async Task<IActionResult> ResetPasswordByUsername([FromBody] ResetPasswordByUsernameDto request)
+        {
+            try
+            {
+                var (success, errorMessage) = await _accountService.ResetPasswordByUsernameAsync(request);
+
+                if (!success)
+                {
+                    return BadRequest(errorMessage);
+                }
+                // Luôn trả về 200 OK để không tiết lộ liệu username có tồn tại hay không
+                return Ok("Nếu tài khoản tồn tại, mật khẩu đã được đặt lại thành công.");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Đã xảy ra lỗi nội bộ máy chủ khi đặt lại mật khẩu.");
             }
         }
 
@@ -139,7 +161,7 @@ namespace DecalXeAPI.Controllers
             return tokenHandler.WriteToken(token);
         }
 
-        // Hàm hỗ trợ: Kiểm tra Role có tồn tại không (vẫn giữ ở đây hoặc chuyển vào RoleService)
+        // Hàm hỗ trợ: Kiểm tra Role có tồn tại không
         private bool RoleExists(string id)
         {
             return _context.Roles.Any(e => e.RoleID == id);
