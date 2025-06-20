@@ -169,8 +169,6 @@ var app = builder.Build(); // <-- app được Build ở đây
 
 
 
-// --- MỚI: TỰ ĐỘNG CHẠY MIGRATION KHI ỨNG DỤNG KHỞI ĐỘNG (ĐẶT Ở ĐÂY) ---
-// Đảm bảo Migration chạy trước khi ứng dụng bắt đầu nhận request
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -183,15 +181,12 @@ using (var scope = app.Services.CreateScope())
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
         logger.LogError(ex, "Đã xảy ra lỗi khi di chuyển database.");
-        // Quan trọng: Nếu migration thất bại nghiêm trọng, có thể muốn dừng ứng dụng
-        // throw; // Ném lỗi để ứng dụng không khởi động nếu database không sẵn sàng
     }
 }
 // --- KẾT THÚC PHẦN TỰ ĐỘNG CHẠY MIGRATION ---
 
 
 // --- CẤU HÌNH CÁC MIDDLEWARE (PIPELINE XỬ LÝ REQUEST) ---
-// 1. Global Exception Handling Middleware
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 // 2. Chuyển hướng HTTP sang HTTPS
