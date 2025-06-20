@@ -86,7 +86,7 @@ namespace DecalXeAPI.MappingProfiles
                 .ForMember(dest => dest.LicensePlate, opt => opt.MapFrom(src => src.CustomerVehicle != null ? src.CustomerVehicle.LicensePlate : null))
                 .ForMember(dest => dest.CarModelName, opt => opt.MapFrom(src => src.CustomerVehicle != null && src.CustomerVehicle.CarModel != null ? src.CustomerVehicle.CarModel.ModelName : null))
                 .ForMember(dest => dest.CarBrandName, opt => opt.MapFrom(src => src.CustomerVehicle != null && src.CustomerVehicle.CarModel != null && src.CustomerVehicle.CarModel.CarBrand != null ? src.CustomerVehicle.CarModel.CarBrand.BrandName : null))
-                .ForMember(dest => dest.IsCustomDecal, opt => opt.MapFrom(src => src.IsCustomDecal)) ; // <-- THÊM ÁNH XẠ NÀY
+                .ForMember(dest => dest.IsCustomDecal, opt => opt.MapFrom(src => src.IsCustomDecal)); // <-- THÊM ÁNH XẠ NÀY
 
             // Ánh xạ cho OrderDetail (Cập nhật để ánh xạ các trường mới)
             CreateMap<OrderDetail, OrderDetailDto>()
@@ -128,10 +128,10 @@ namespace DecalXeAPI.MappingProfiles
                 .ForMember(dest => dest.BrandName, opt => opt.MapFrom(src => src.CarBrand != null ? src.CarBrand.BrandName : string.Empty));
 
             // Ánh xạ cho CustomerVehicle
-CreateMap<CustomerVehicle, CustomerVehicleDto>()
-    .ForMember(dest => dest.CustomerFullName, opt => opt.MapFrom(src => src.Customer != null ? src.Customer.FirstName + " " + src.Customer.LastName : string.Empty))
-    .ForMember(dest => dest.ModelName, opt => opt.MapFrom(src => src.CarModel != null ? src.CarModel.ModelName : string.Empty))
-    .ForMember(dest => dest.BrandName, opt => opt.MapFrom(src => src.CarModel != null && src.CarModel.CarBrand != null ? src.CarModel.CarBrand.BrandName : string.Empty)); // <-- SỬA DÒNG NÀY
+            CreateMap<CustomerVehicle, CustomerVehicleDto>()
+                .ForMember(dest => dest.CustomerFullName, opt => opt.MapFrom(src => src.Customer != null ? src.Customer.FirstName + " " + src.Customer.LastName : string.Empty))
+                .ForMember(dest => dest.ModelName, opt => opt.MapFrom(src => src.CarModel != null ? src.CarModel.ModelName : string.Empty))
+                .ForMember(dest => dest.BrandName, opt => opt.MapFrom(src => src.CarModel != null && src.CarModel.CarBrand != null ? src.CarModel.CarBrand.BrandName : string.Empty)); // <-- SỬA DÒNG NÀY
             // Ánh xạ cho OrderStageHistory
             CreateMap<OrderStageHistory, OrderStageHistoryDto>()
                 .ForMember(dest => dest.ChangedByEmployeeFullName, opt => opt.MapFrom(src => src.ChangedByEmployee != null ? src.ChangedByEmployee.FirstName + " " + src.ChangedByEmployee.LastName : null));
@@ -179,7 +179,8 @@ CreateMap<CustomerVehicle, CustomerVehicleDto>()
             CreateMap<RegisterDto, Account>()
                 .ForMember(dest => dest.AccountID, opt => opt.MapFrom(src => Guid.NewGuid().ToString()))
                 .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => true))
-                .ForMember(dest => dest.PasswordHash, opt => opt.MapFrom(src => src.Password));
+                .ForMember(dest => dest.PasswordHash, opt => opt.MapFrom(src => src.Password))
+                .ForMember(dest => dest.Email, opt => opt.MapFrom(src => src.Email));
         }
     }
 }

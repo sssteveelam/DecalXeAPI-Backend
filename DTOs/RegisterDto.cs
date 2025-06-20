@@ -8,6 +8,10 @@ namespace DecalXeAPI.DTOs
         [MaxLength(100, ErrorMessage = "Username không được vượt quá 100 ký tự.")]
         public string Username { get; set; } = string.Empty;
 
+
+        [MaxLength(100, ErrorMessage = "Email không được vượt quá 100 ký tự.")] // Email là tùy chọn hoặc bắt buộc tùy theo nghiệp vụ
+        public string? Email { get; set; } // <-- THÊM DÒNG NÀY: Email của tài khoản
+
         [Required(ErrorMessage = "Mật khẩu là bắt buộc.")]
         [MinLength(6, ErrorMessage = "Mật khẩu phải có ít nhất 6 ký tự.")]
         [MaxLength(50, ErrorMessage = "Mật khẩu không được vượt quá 50 ký tự.")]
