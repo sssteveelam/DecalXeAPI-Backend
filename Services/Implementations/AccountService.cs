@@ -2,14 +2,14 @@ using Microsoft.EntityFrameworkCore;
 using DecalXeAPI.Data;
 using DecalXeAPI.DTOs;
 using DecalXeAPI.Models;
-using DecalXeAPI.Services.Interfaces; // Cần cho IEmailService
+using DecalXeAPI.Services.Interfaces;
 using AutoMapper;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System;
-using System.Security.Cryptography; // Cần cho việc tạo token ngẫu nhiên
+using System.Security.Cryptography; // Vẫn giữ nếu sau này cần hash mật khẩu an toàn
 
 namespace DecalXeAPI.Services.Implementations
 {
@@ -18,14 +18,14 @@ namespace DecalXeAPI.Services.Implementations
         private readonly ApplicationDbContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<AccountService> _logger;
-        private readonly IEmailService _emailService; // <-- KHAI BÁO BIẾN EMAIL SERVICE
+        private readonly IEmailService _emailService; // <-- Vẫn giữ Email Service nếu muốn dùng cho mục đích khác
 
-        public AccountService(ApplicationDbContext context, IMapper mapper, ILogger<AccountService> logger, IEmailService emailService) // <-- TIÊM EMAIL SERVICE
+        public AccountService(ApplicationDbContext context, IMapper mapper, ILogger<AccountService> logger, IEmailService emailService)
         {
             _context = context;
             _mapper = mapper;
             _logger = logger;
-            _emailService = emailService; // Gán Email Service
+            _emailService = emailService;
         }
 
         public async Task<IEnumerable<AccountDto>> GetAccountsAsync()
@@ -143,191 +143,50 @@ namespace DecalXeAPI.Services.Implementations
             return true;
         }
 
-        // --- PHƯƠNG THỨC MỚI CHO TÍNH NĂNG QUÊN MẬT KHẨU ---
-        // Yêu cầu đặt lại mật khẩu (tạo token và gửi email)
-        public async Task<(bool Success, string? ErrorMessage)> ForgotPasswordAsync(ForgotPasswordRequestDto request)
+        // --- PHƯƠNG THỨC MỚI CHO TÍNH NĂNG ĐỔI MẬT KHẨU (KHÔNG DÙNG TOKEN RESET) ---
+        // Yêu cầu đổi mật khẩu (xác minh mật khẩu cũ và đặt mật khẩu mới)
+        public async Task<(bool Success, string? ErrorMessage)> ChangePasswordAsync(string accountId, ChangePasswordRequestDto request)
         {
-            _logger.LogInformation("Yêu cầu đặt lại mật khẩu cho Identifier: {Identifier}", request.Identifier);
+            _logger.LogInformation("Yêu cầu đổi mật khẩu cho AccountID: {AccountID}", accountId);
 
-            // 1. Tìm tài khoản bằng Username hoặc Email
-            var account = await _context.Accounts
-                                        .FirstOrDefaultAsync(a => a.Username == request.Identifier || a.Email == request.Identifier);
-
+            // 1. Tìm tài khoản
+            var account = await _context.Accounts.FindAsync(accountId);
             if (account == null)
             {
-                _logger.LogWarning("Không tìm thấy tài khoản cho yêu cầu đặt lại mật khẩu: {Identifier}. (Để bảo mật, không tiết lộ tài khoản có tồn tại hay không).", request.Identifier);
-                // Để bảo mật, luôn trả về thành công ngay cả khi tài khoản không tồn tại
-                // để tránh lộ thông tin người dùng. Tuy nhiên, không gửi email.
-                return (true, null);
+                _logger.LogWarning("Không tìm thấy tài khoản để đổi mật khẩu với ID: {AccountID}", accountId);
+                return (false, "Tài khoản không tồn tại.");
             }
-            
-            // Đảm bảo tài khoản có email để gửi (nếu dùng email làm kênh gửi)
-            if (string.IsNullOrEmpty(account.Email))
+
+            // 2. Xác minh mật khẩu cũ (So sánh mật khẩu đã hash trong thực tế)
+            if (account.PasswordHash != request.OldPassword) // Tạm thời so sánh chuỗi trực tiếp
             {
-                 _logger.LogWarning("Tài khoản {Username} không có email để gửi đặt lại mật khẩu.", account.Username);
-                 return (false, "Tài khoản không có email liên kết để gửi đặt lại mật khẩu.");
+                _logger.LogWarning("Mật khẩu cũ không đúng cho Account {AccountID}", accountId);
+                return (false, "Mật khẩu cũ không đúng.");
             }
 
-            // 2. Tạo Token đặt lại mật khẩu (ví dụ: GUID hoặc chuỗi ngẫu nhiên)
-            var resetToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)); // Token ngẫu nhiên, dài
-            account.PasswordResetToken = resetToken;
-            account.PasswordResetTokenExpiry = DateTime.UtcNow.AddHours(1); // Token hết hạn sau 1 giờ
-
-            _context.Accounts.Update(account);
-            await _context.SaveChangesAsync();
-            _logger.LogInformation("Đã tạo Password Reset Token cho Account {AccountID}. Token hết hạn lúc {ExpiryTime}", account.AccountID, account.PasswordResetTokenExpiry);
-
-            // 3. Gửi email chứa link đặt lại mật khẩu THẬT
-            var resetLink = $"YOUR_FRONTEND_RESET_PASSWORD_URL?token={resetToken}"; // <-- ĐÂY LÀ LINK ĐẾN FRONTEND CỦA BẠN
-            var emailSubject = "Yêu cầu đặt lại mật khẩu cho tài khoản DecalXeAPI của bạn";
-           // --- MỚI: NỘI DUNG EMAIL HTML ĐẸP HƠN ---
-            var emailBody = $@"
-                <!DOCTYPE html>
-                <html lang=""vi"">
-                <head>
-                    <meta charset=""UTF-8"">
-                    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
-                    <title>Yêu Cầu Đặt Lại Mật Khẩu</title>
-                    <style>
-                        body {{
-                            font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-                            background-color: #f4f4f4;
-                            margin: 0;
-                            padding: 0;
-                            -webkit-text-size-adjust: 100%;
-                            -ms-text-size-adjust: 100%;
-                        }}
-                        .email-container {{
-                            max-width: 600px;
-                            margin: 20px auto;
-                            background-color: #ffffff;
-                            border-radius: 8px;
-                            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
-                            overflow: hidden;
-                        }}
-                        .header {{
-                            background-color: #4CAF50; /* Màu xanh lá cây - có thể đổi */
-                            padding: 25px 20px;
-                            color: #ffffff;
-                            text-align: center;
-                        }}
-                        .header h1 {{
-                            margin: 0;
-                            font-size: 24px;
-                            font-weight: 600;
-                        }}
-                        .content {{
-                            padding: 30px 20px;
-                            line-height: 1.6;
-                            color: #333333;
-                        }}
-                        .content p {{
-                            margin-bottom: 15px;
-                        }}
-                        .button-container {{
-                            text-align: center;
-                            margin: 30px 0;
-                        }}
-                        .button {{
-                            display: inline-block;
-                            background-color: #007bff; /* Màu xanh dương - có thể đổi */
-                            color: #ffffff;
-                            padding: 12px 25px;
-                            border-radius: 5px;
-                            text-decoration: none;
-                            font-size: 16px;
-                            font-weight: 500;
-                            transition: background-color 0.3s ease;
-                        }}
-                        .button:hover {{
-                            background-color: #0056b3;
-                        }}
-                        .footer {{
-                            background-color: #f0f0f0;
-                            padding: 20px;
-                            text-align: center;
-                            font-size: 12px;
-                            color: #666666;
-                            border-top: 1px solid #e0e0e0;
-                        }}
-                        .warning {{
-                            color: #ff0000;
-                            font-weight: bold;
-                        }}
-                    </style>
-                </head>
-                <body>
-                    <div class=""email-container"">
-                        <div class=""header"">
-                            <h1>Hệ thống Decal Xe</h1>
-                        </div>
-                        <div class=""content"">
-                            <p>Xin chào <strong>{account.Username}</strong>,</p>
-                            <p>Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản của mình trên hệ thống <strong>DecalXeAPI</strong>.</p>
-                            <p>Để đặt lại mật khẩu, vui lòng nhấp vào nút dưới đây:</p>
-                            <div class=""button-container"">
-                                <a href=""{resetLink}"" class=""button"">Đặt lại mật khẩu của bạn</a>
-                            </div>
-                            <p>Đường link này sẽ hết hạn trong <strong>1 giờ</strong> vì lý do bảo mật.</p>
-                            <p class=""warning"">Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
-                            <p>Trân trọng,</p>
-                            <p>Đội ngũ hỗ trợ <strong>Hệ thống Decal Xe</strong></p>
-                        </div>
-                        <div class=""footer"">
-                            <p>&copy; {DateTime.Now.Year} Hệ thống Decal Xe. Mọi quyền được bảo lưu.</p>
-                        </div>
-                    </div>
-                </body>
-                </html>
-                ";
-            // --- KẾT THÚC PHẦN MỚI ---
-
-
-            var emailSent = await _emailService.SendEmailAsync(account.Email, emailSubject, emailBody); // <-- GỌI EMAIL SERVICE THẬT
-
-            if (!emailSent)
-            {
-                _logger.LogError("Không thể gửi email đặt lại mật khẩu đến {RecipientEmail}.", account.Email);
-                return (false, "Không thể gửi email đặt lại mật khẩu. Vui lòng thử lại sau.");
-            }
-
-            return (true, null);
-        }
-
-        // Đặt lại mật khẩu (xác minh token và cập nhật mật khẩu)
-        public async Task<(bool Success, string? ErrorMessage)> ResetPasswordAsync(ResetPasswordRequestDto request)
-        {
-            _logger.LogInformation("Yêu cầu đặt lại mật khẩu bằng Token: {Token}", request.Token);
-
-            // 1. Tìm tài khoản bằng Token và kiểm tra hết hạn
-            var account = await _context.Accounts
-                                        .FirstOrDefaultAsync(a => a.PasswordResetToken == request.Token && a.PasswordResetTokenExpiry > DateTime.UtcNow);
-
-            if (account == null)
-            {
-                _logger.LogWarning("Token đặt lại mật khẩu không hợp lệ hoặc đã hết hạn: {Token}", request.Token);
-                return (false, "Token đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.");
-            }
-
-            // 2. Kiểm tra xác nhận mật khẩu
+            // 3. Kiểm tra mật khẩu mới và xác nhận
             if (request.NewPassword != request.ConfirmNewPassword)
             {
-                _logger.LogWarning("Mật khẩu mới và xác nhận mật khẩu không khớp cho Account {AccountID}", account.AccountID);
+                _logger.LogWarning("Mật khẩu mới và xác nhận mật khẩu không khớp cho Account {AccountID}", accountId);
                 return (false, "Mật khẩu mới và xác nhận mật khẩu không khớp.");
             }
 
-            // 3. Hash mật khẩu mới (Nếu bạn đang hash mật khẩu khi tạo tài khoản, hãy hash ở đây)
+            // (Thêm kiểm tra độ mạnh mật khẩu nếu cần: MinLength, ContainsDigit, ContainsSpecialChar...)
+            if (request.NewPassword.Length < 6) // Ví dụ kiểm tra độ dài tối thiểu
+            {
+                return (false, "Mật khẩu mới phải có ít nhất 6 ký tự.");
+            }
+
+
+            // 4. Hash mật khẩu mới (Nếu bạn đang hash mật khẩu khi tạo tài khoản, hãy hash ở đây)
             account.PasswordHash = request.NewPassword; // Tạm thời lưu plaintext, thực tế PHẢI HASH
-            account.PasswordResetToken = null; // Hủy token sau khi sử dụng
-            account.PasswordResetTokenExpiry = null; // Xóa thời gian hết hạn
 
             _context.Accounts.Update(account);
             await _context.SaveChangesAsync();
-            _logger.LogInformation("Mật khẩu cho Account {AccountID} đã được đặt lại thành công.", account.AccountID);
+            _logger.LogInformation("Mật khẩu cho Account {AccountID} đã được đổi thành công.", account.AccountID);
 
             return (true, null);
         }
-
 
         // --- HÀM HỖ TRỢ: KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (PUBLIC CHO INTERFACE) ---
         public async Task<bool> AccountExistsAsync(string id)

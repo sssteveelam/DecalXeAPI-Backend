@@ -1,3 +1,5 @@
+// File: Models/Account.cs
+
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Collections.Generic;
@@ -16,7 +18,7 @@ namespace DecalXeAPI.Models
         public string Username { get; set; } = string.Empty;
 
         [MaxLength(100)] // Email cũng có giới hạn độ dài
-        public string? Email { get; set; } // <-- THÊM DÒNG NÀY: Email của tài khoản (có thể null)
+        public string? Email { get; set; } // Email của tài khoản (có thể null)
 
         [Required]
         [MaxLength(255)]
@@ -24,11 +26,11 @@ namespace DecalXeAPI.Models
 
         public bool IsActive { get; set; } = true;
 
-        // --- CỘT MỚI CHO TÍNH NĂNG QUÊN MẬT KHẨU (đã có) ---
-        [MaxLength(255)]
-        public string? PasswordResetToken { get; set; }
+        // --- CỘT CŨ CHO TÍNH NĂNG QUÊN MẬT KHẨU (SẼ XÓA) ---
+        // [MaxLength(255)] // <-- XÓA DÒNG NÀY
+        // public string? PasswordResetToken { get; set; } // <-- XÓA DÒNG NÀY
 
-        public DateTime? PasswordResetTokenExpiry { get; set; }
+        // public DateTime? PasswordResetTokenExpiry { get; set; } // <-- XÓA DÒNG NÀY
 
 
         // Khóa ngoại (Foreign Key): Một Account thuộc về một Role

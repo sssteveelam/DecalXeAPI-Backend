@@ -2,10 +2,10 @@ using System.ComponentModel.DataAnnotations;
 
 namespace DecalXeAPI.DTOs
 {
-    public class ResetPasswordRequestDto
+    public class ChangePasswordRequestDto
     {
-        [Required(ErrorMessage = "Password Reset Token là bắt buộc.")]
-        public string Token { get; set; } = string.Empty; // Token đã nhận được từ yêu cầu đặt lại mật khẩu
+        [Required(ErrorMessage = "Mật khẩu cũ là bắt buộc.")]
+        public string OldPassword { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Mật khẩu mới là bắt buộc.")]
         [MinLength(6, ErrorMessage = "Mật khẩu phải có ít nhất 6 ký tự.")]

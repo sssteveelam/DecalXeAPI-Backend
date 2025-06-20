@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DecalXeAPI.Data;
 using DecalXeAPI.Models;
-using DecalXeAPI.DTOs;
+using DecalXeAPI.DTOs; // Cần cho LoginDto, RegisterDto, ChangePasswordRequestDto
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -11,7 +11,8 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using DecalXeAPI.Services.Interfaces;
-using AutoMapper; // Cần cho việc ánh xạ RegisterDto sang Account Model
+using AutoMapper;
+using Microsoft.AspNetCore.Authorization; // Cần cho [Authorize]
 
 namespace DecalXeAPI.Controllers
 {
@@ -22,23 +23,21 @@ namespace DecalXeAPI.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IConfiguration _configuration;
         private readonly IAccountService _accountService;
-        private readonly IMapper _mapper; // <-- THÊM IMAPPER VÀO ĐÂY
+        private readonly IMapper _mapper;
 
-        public AuthController(ApplicationDbContext context, IConfiguration configuration, IAccountService accountService, IMapper mapper) // <-- TIÊM IMAPPER
+        public AuthController(ApplicationDbContext context, IConfiguration configuration, IAccountService accountService, IMapper mapper)
         {
             _context = context;
             _configuration = configuration;
             _accountService = accountService;
-            _mapper = mapper; // Gán IMapper
+            _mapper = mapper;
         }
 
         // API: POST api/Auth/register
         [HttpPost("register")]
-        public async Task<ActionResult<string>> Register([FromBody] RegisterDto registerDto) // Nhận vào RegisterDto
+        public async Task<ActionResult<string>> Register([FromBody] RegisterDto registerDto)
         {
-            // Ánh xạ RegisterDto sang Account Model. Email sẽ được ánh xạ tự động.
             var newAccount = _mapper.Map<Account>(registerDto);
-            // PasswordHash đã được ánh xạ từ Password trong MappingProfile.
 
             try
             {
@@ -64,7 +63,7 @@ namespace DecalXeAPI.Controllers
                 return Unauthorized("Sai Username hoặc mật khẩu.");
             }
 
-            if (account.PasswordHash != loginDto.Password)
+            if (account.PasswordHash != loginDto.Password) // Tạm thời so sánh chuỗi trực tiếp
             {
                 return Unauthorized("Sai Username hoặc mật khẩu.");
             }
@@ -79,33 +78,40 @@ namespace DecalXeAPI.Controllers
             return Ok(token);
         }
 
-        // API: POST api/Auth/forgot-password
-        [HttpPost("forgot-password")]
-        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto request)
-        {
-            var (success, errorMessage) = await _accountService.ForgotPasswordAsync(request);
+        // --- API MỚI CHO TÍNH NĂNG ĐỔI MẬT KHẨU ---
 
-            if (!success && errorMessage != null)
+        // API: PUT api/Auth/change-password
+        // Người dùng đã đăng nhập đổi mật khẩu
+        [HttpPut("change-password")]
+        [Authorize] // Yêu cầu người dùng phải đăng nhập để đổi mật khẩu của chính họ
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequestDto request)
+        {
+            // Lấy AccountID của người dùng hiện tại từ JWT Token
+            var accountId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(accountId))
             {
-                return BadRequest(errorMessage);
+                return Unauthorized("Không tìm thấy AccountID từ token.");
             }
 
-            return Ok("Nếu tài khoản tồn tại, một email đặt lại mật khẩu đã được gửi.");
-        }
-
-        // API: POST api/Auth/reset-password
-        [HttpPost("reset-password")]
-        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto request)
-        {
-            var (success, errorMessage) = await _accountService.ResetPasswordAsync(request);
-
-            if (!success)
+            try
             {
-                return BadRequest(errorMessage);
-            }
+                var (success, errorMessage) = await _accountService.ChangePasswordAsync(accountId, request);
 
-            return Ok("Mật khẩu đã được đặt lại thành công.");
+                if (!success)
+                {
+                    return BadRequest(errorMessage); // Trả về lỗi nếu mật khẩu cũ sai, hoặc mật khẩu mới không khớp
+                }
+
+                return Ok("Mật khẩu đã được đổi thành công.");
+            }
+            catch (Exception ex)
+            {
+                // Bắt các lỗi không mong muốn khác từ Service
+                return StatusCode(500, "Đã xảy ra lỗi nội bộ máy chủ khi đổi mật khẩu.");
+            }
         }
+
 
         // Hàm hỗ trợ: Tạo JWT Token (Không thay đổi)
         private string GenerateJwtToken(Account account)
