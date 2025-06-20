@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Collections.Generic;
+using System; // Cần cho DateTime
 using System.Text.Json.Serialization; // Để dùng [JsonIgnore]
 
 namespace DecalXeAPI.Models
@@ -8,40 +9,39 @@ namespace DecalXeAPI.Models
     public class Account
     {
         [Key]
-        public string AccountID { get; set; } = Guid.NewGuid().ToString(); // PK
+        public string AccountID { get; set; } = Guid.NewGuid().ToString();
 
         [Required]
         [MaxLength(100)]
         public string Username { get; set; } = string.Empty;
 
+        [MaxLength(100)] // Email cũng có giới hạn độ dài
+        public string? Email { get; set; } // <-- THÊM DÒNG NÀY: Email của tài khoản (có thể null)
+
         [Required]
-        [MaxLength(255)] // PasswordHash thường dài để lưu mã hóa
+        [MaxLength(255)]
         public string PasswordHash { get; set; } = string.Empty;
 
-        public bool IsActive { get; set; } = true; // Mặc định là Active
+        public bool IsActive { get; set; } = true;
+
+        // --- CỘT MỚI CHO TÍNH NĂNG QUÊN MẬT KHẨU (đã có) ---
+        [MaxLength(255)]
+        public string? PasswordResetToken { get; set; }
+
+        public DateTime? PasswordResetTokenExpiry { get; set; }
+
 
         // Khóa ngoại (Foreign Key): Một Account thuộc về một Role
         [ForeignKey("Role")]
-        public string RoleID { get; set; } = string.Empty; // FK_RoleID
+        public string RoleID { get; set; } = string.Empty;
         public Role? Role { get; set; }
 
-        // --- NAVIGATION PROPERTIES HIỆN CÓ (Giữ nguyên) ---
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
+        // --- NAVIGATION PROPERTIES HIỆN CÓ ---
+        [JsonIgnore]
         public Customer? Customer { get; set; }
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
+        [JsonIgnore]
         public Employee? Employee { get; set; }
-
-        // --- CỘT MỚI CHO TÍNH NĂNG QUÊN MẬT KHẨU ---
-        [MaxLength(255)] // Độ dài của token
-        public string? PasswordResetToken { get; set; } // Token dùng để reset mật khẩu (có thể null)
-
-        public DateTime? PasswordResetTokenExpiry { get; set; } // Thời gian hết hạn của token (có thể null)
-
-
-
-
-        // --- NAVIGATION PROPERTY MỚI TỪ YÊU CẦU REVIEW ---
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
-        public ICollection<DesignComment>? DesignComments { get; set; } // Các bình luận thiết kế mà tài khoản này đã gửi
+        [JsonIgnore]
+        public ICollection<DesignComment>? DesignComments { get; set; }
     }
 }
