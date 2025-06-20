@@ -179,8 +179,7 @@ namespace DecalXeAPI.MappingProfiles
             CreateMap<RegisterDto, Account>()
                 .ForMember(dest => dest.AccountID, opt => opt.MapFrom(src => Guid.NewGuid().ToString()))
                 .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => true))
-                .ForMember(dest => dest.PasswordHash, opt => opt.MapFrom(src => src.Password))
-                .ForMember(dest => dest.Email, opt => opt.MapFrom(src => src.Email));
+                .ForMember(dest => dest.PasswordHash, opt => opt.MapFrom(src => src.Password));
         }
     }
 }
