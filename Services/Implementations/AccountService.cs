@@ -180,15 +180,108 @@ namespace DecalXeAPI.Services.Implementations
             // 3. Gửi email chứa link đặt lại mật khẩu THẬT
             var resetLink = $"YOUR_FRONTEND_RESET_PASSWORD_URL?token={resetToken}"; // <-- ĐÂY LÀ LINK ĐẾN FRONTEND CỦA BẠN
             var emailSubject = "Yêu cầu đặt lại mật khẩu cho tài khoản DecalXeAPI của bạn";
+           // --- MỚI: NỘI DUNG EMAIL HTML ĐẸP HƠN ---
             var emailBody = $@"
-                <p>Xin chào {account.Username},</p>
-                <p>Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản của mình trên hệ thống DecalXeAPI.</p>
-                <p>Vui lòng click vào đường link dưới đây để đặt lại mật khẩu của bạn:</p>
-                <p><a href='{resetLink}'>Đặt lại mật khẩu của bạn</a></p>
-                <p>Đường link này sẽ hết hạn trong 1 giờ.</p>
-                <p>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
-                <p>Trân trọng,</p>
-                <p>Hệ thống Decal Xe</p>";
+                <!DOCTYPE html>
+                <html lang=""vi"">
+                <head>
+                    <meta charset=""UTF-8"">
+                    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+                    <title>Yêu Cầu Đặt Lại Mật Khẩu</title>
+                    <style>
+                        body {{
+                            font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                            background-color: #f4f4f4;
+                            margin: 0;
+                            padding: 0;
+                            -webkit-text-size-adjust: 100%;
+                            -ms-text-size-adjust: 100%;
+                        }}
+                        .email-container {{
+                            max-width: 600px;
+                            margin: 20px auto;
+                            background-color: #ffffff;
+                            border-radius: 8px;
+                            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+                            overflow: hidden;
+                        }}
+                        .header {{
+                            background-color: #4CAF50; /* Màu xanh lá cây - có thể đổi */
+                            padding: 25px 20px;
+                            color: #ffffff;
+                            text-align: center;
+                        }}
+                        .header h1 {{
+                            margin: 0;
+                            font-size: 24px;
+                            font-weight: 600;
+                        }}
+                        .content {{
+                            padding: 30px 20px;
+                            line-height: 1.6;
+                            color: #333333;
+                        }}
+                        .content p {{
+                            margin-bottom: 15px;
+                        }}
+                        .button-container {{
+                            text-align: center;
+                            margin: 30px 0;
+                        }}
+                        .button {{
+                            display: inline-block;
+                            background-color: #007bff; /* Màu xanh dương - có thể đổi */
+                            color: #ffffff;
+                            padding: 12px 25px;
+                            border-radius: 5px;
+                            text-decoration: none;
+                            font-size: 16px;
+                            font-weight: 500;
+                            transition: background-color 0.3s ease;
+                        }}
+                        .button:hover {{
+                            background-color: #0056b3;
+                        }}
+                        .footer {{
+                            background-color: #f0f0f0;
+                            padding: 20px;
+                            text-align: center;
+                            font-size: 12px;
+                            color: #666666;
+                            border-top: 1px solid #e0e0e0;
+                        }}
+                        .warning {{
+                            color: #ff0000;
+                            font-weight: bold;
+                        }}
+                    </style>
+                </head>
+                <body>
+                    <div class=""email-container"">
+                        <div class=""header"">
+                            <h1>Hệ thống Decal Xe</h1>
+                        </div>
+                        <div class=""content"">
+                            <p>Xin chào <strong>{account.Username}</strong>,</p>
+                            <p>Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản của mình trên hệ thống <strong>DecalXeAPI</strong>.</p>
+                            <p>Để đặt lại mật khẩu, vui lòng nhấp vào nút dưới đây:</p>
+                            <div class=""button-container"">
+                                <a href=""{resetLink}"" class=""button"">Đặt lại mật khẩu của bạn</a>
+                            </div>
+                            <p>Đường link này sẽ hết hạn trong <strong>1 giờ</strong> vì lý do bảo mật.</p>
+                            <p class=""warning"">Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
+                            <p>Trân trọng,</p>
+                            <p>Đội ngũ hỗ trợ <strong>Hệ thống Decal Xe</strong></p>
+                        </div>
+                        <div class=""footer"">
+                            <p>&copy; {DateTime.Now.Year} Hệ thống Decal Xe. Mọi quyền được bảo lưu.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                ";
+            // --- KẾT THÚC PHẦN MỚI ---
+
 
             var emailSent = await _emailService.SendEmailAsync(account.Email, emailSubject, emailBody); // <-- GỌI EMAIL SERVICE THẬT
 
