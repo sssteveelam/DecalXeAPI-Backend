@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System; // Để dùng TimeSpan
 using System.Text.Json.Serialization;
-
+// commit
 namespace DecalXeAPI.Models
 {
     public class TimeSlotDefinition
