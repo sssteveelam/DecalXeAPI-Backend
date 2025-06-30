@@ -123,22 +123,9 @@ using (var scope = app.Services.CreateScope())
 
 // --- CẤU HÌNH CÁC MIDDLEWARE (PIPELINE XỬ LÝ REQUEST) ---
 app.UseMiddleware<ExceptionHandlingMiddleware>();
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(options =>
-    {
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "DecalXeAPI v1");
-    });
-}
-else // BẬT SWAGGER UI TRONG CẢ MÔI TRƯỜNG PRODUCTION
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(options =>
-    {
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "DecalXeAPI v1");
-    });
-}
+
+app.UseSwagger();
+app.UseSwaggerUI(options =>{options.SwaggerEndpoint("/swagger/v1/swagger.json", "DecalXeAPI v1");});
 
 app.UseCors("AllowSpecificOrigin");
 app.UseAuthentication();
