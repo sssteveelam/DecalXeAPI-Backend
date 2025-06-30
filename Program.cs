@@ -4,8 +4,8 @@ using DecalXeAPI.Middleware;
 using DecalXeAPI.Models;
 using DecalXeAPI.QueryParams;
 using DecalXeAPI.DTOs;
-using DecalXeAPI.Services.Interfaces; // Cần cho các Interface Services
-using DecalXeAPI.Services.Implementations; // Cần cho các Implementation Services
+using DecalXeAPI.Services.Interfaces; // <-- ĐẢM BẢO DÒNG NÀY CÓ! (Cho IVehicleService, ICustomerVehicleService)
+using DecalXeAPI.Services.Implementations; // <-- ĐẢM BẢO DÒNG NÀY CÓ! (Cho IVehicleService, ICustomerVehicleService)
 // Thêm using cho VehicleService nếu nó nằm ở namespace khác
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -126,8 +126,9 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseSwagger();
 app.UseSwaggerUI(options =>{options.SwaggerEndpoint("/swagger/v1/swagger.json", "DecalXeAPI v1");});
-
+app.UseStaticFiles(); // Đảm bảo StaticFiles được phục vụ cho Swagger UI
 app.UseCors("AllowSpecificOrigin");
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
