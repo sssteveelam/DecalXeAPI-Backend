@@ -61,14 +61,9 @@ namespace DecalXeAPI.Controllers
         [HttpPost]
         public async Task<ActionResult<DesignDto>> PostDesign(Design design) // Vẫn nhận Design Model
         {
-            _logger.LogInformation("Yêu cầu tạo thiết kế mới cho OrderID: {OrderID}", design.OrderID);
 
             // --- KIỂM TRA FKs CHÍNH TRƯỚC KHI GỬI VÀO SERVICE ---
-            // Controller sẽ chịu trách nhiệm validate các FKs chính
-            if (!string.IsNullOrEmpty(design.OrderID) && !OrderExists(design.OrderID))
-            {
-                return BadRequest("OrderID không tồn tại.");
-            }
+           
             if (!string.IsNullOrEmpty(design.DesignerID) && !EmployeeExists(design.DesignerID))
             {
                 return BadRequest("DesignerID không tồn tại.");
@@ -98,10 +93,7 @@ namespace DecalXeAPI.Controllers
             }
 
             // Kiểm tra FKs chính
-            if (!string.IsNullOrEmpty(design.OrderID) && !OrderExists(design.OrderID))
-            {
-                return BadRequest("OrderID không tồn tại.");
-            }
+            
             if (!string.IsNullOrEmpty(design.DesignerID) && !EmployeeExists(design.DesignerID))
             {
                 return BadRequest("DesignerID không tồn tại.");

@@ -66,10 +66,7 @@ namespace DecalXeAPI.Controllers
             {
                 return BadRequest("OrderID không tồn tại.");
             }
-            if (!string.IsNullOrEmpty(payment.PromotionID) && !PromotionExists(payment.PromotionID))
-            {
-                return BadRequest("PromotionID không tồn tại.");
-            }
+            
 
             try
             {
@@ -99,10 +96,7 @@ namespace DecalXeAPI.Controllers
             {
                 return BadRequest("OrderID không tồn tại.");
             }
-            if (!string.IsNullOrEmpty(payment.PromotionID) && !PromotionExists(payment.PromotionID))
-            {
-                return BadRequest("PromotionID không tồn tại.");
-            }
+            
 
             try
             {
@@ -154,6 +148,5 @@ namespace DecalXeAPI.Controllers
         // --- HÀM HỖ TRỢ (PRIVATE): KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (Vẫn giữ ở Controller để kiểm tra FKs) ---
         private bool PaymentExists(string id) { return _context.Payments.Any(e => e.PaymentID == id); }
         private bool OrderExists(string id) { return _context.Orders.Any(e => e.OrderID == id); }
-        private bool PromotionExists(string id) { return _context.Promotions.Any(e => e.PromotionID == id); }
     }
 }

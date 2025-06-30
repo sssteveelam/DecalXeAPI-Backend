@@ -1,36 +1,41 @@
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema; // Để dùng [Column]
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using System; // For Guid
 
 namespace DecalXeAPI.Models
 {
     public class Product
     {
         [Key]
-        public string ProductID { get; set; } = Guid.NewGuid().ToString();
+        public string ProductID { get; set; } = Guid.NewGuid().ToString(); // PK
 
         [Required]
         [MaxLength(100)]
         public string ProductName { get; set; } = string.Empty;
 
         [MaxLength(500)]
-        public string? Description { get; set; } // Mô tả sản phẩm
+        public string? Description { get; set; }
 
         [Required]
         [MaxLength(50)]
-        public string Unit { get; set; } = string.Empty; // Đơn vị tính (ví dụ: cuộn, chai, mét)
+        public string Unit { get; set; } = string.Empty;
 
         [Required]
-        [Column(TypeName = "decimal(18,2)")] // Định rõ kiểu số thập phân cho DB (18 chữ số tổng cộng, 2 chữ số sau dấu thập phân)
+        [Column(TypeName = "decimal(18,2)")]
         public decimal UnitPrice { get; set; }
 
-        public int StockQuantity { get; set; } // Số lượng tồn kho
+        [Required]
+        public int StockQuantity { get; set; }
 
         [MaxLength(100)]
-        public string? Category { get; set; } // Ví dụ: "Decal", "Hóa chất", "Dụng cụ"
+        public string? Category { get; set; }
 
-        // Navigation Property: Một Product có thể được dùng trong nhiều ServiceProduct.
+        // --- NAVIGATION PROPERTIES ĐƯỢC ĐIỀU CHỈNH/THÊM THEO REVIEW2 ---
+        // public ICollection<ServiceProduct>? ServiceProducts { get; set; } // <-- ĐÃ XÓA (vì bảng ServiceProduct đã xóa)
+
         [JsonIgnore]
-        public ICollection<ServiceProduct>? ServiceProducts { get; set; }
+        public ICollection<ServiceVehicleModelProduct>? ServiceVehicleModelProducts { get; set; } // <-- MỚI: Bảng liên kết 3 chiều mới
     }
 }

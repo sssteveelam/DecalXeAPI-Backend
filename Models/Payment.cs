@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System;
+using System.Text.Json.Serialization; // Để dùng [JsonIgnore]
 
 namespace DecalXeAPI.Models
 {
@@ -9,44 +10,47 @@ namespace DecalXeAPI.Models
         [Key]
         public string PaymentID { get; set; } = Guid.NewGuid().ToString(); // PK
 
-        // Khóa ngoại (Foreign Key): Thanh toán này cho Order nào
-        public string OrderID { get; set; } = string.Empty; // FK_OrderID
-        // Navigation Property
+        [Required]
+        [ForeignKey("Order")]
+        public string OrderID { get; set; } = string.Empty;
+        [JsonIgnore]
         public Order? Order { get; set; }
 
-        // Khóa ngoại (Foreign Key): Thanh toán này có áp dụng Promotion nào không (nullable)
-        public string? PromotionID { get; set; } // FK_PromotionID (có thể null)
-        // Navigation Property
-        public Promotion? Promotion { get; set; }
+        // --- CỘT ĐÃ BỊ XÓA THEO REVIEW2 ---
+        // [ForeignKey("Promotion")] // <-- ĐÃ XÓA DÒNG NÀY (FK)
+        // public string? PromotionID { get; set; } // <-- ĐÃ XÓA DÒNG NÀY
+        // [JsonIgnore]
+        // public Promotion? Promotion { get; set; } // <-- ĐÃ XÓA DÒNG NÀY
 
         [Required]
-        [Column(TypeName = "decimal(18,2)")] // Số tiền thanh toán
+        [Column(TypeName = "decimal(18,2)")]
         public decimal PaymentAmount { get; set; }
 
         [Required]
-        public DateTime PaymentDate { get; set; } = DateTime.UtcNow; // Ngày thanh toán
+        public DateTime PaymentDate { get; set; } = DateTime.UtcNow;
 
         [Required]
         [MaxLength(50)]
-        public string PaymentMethod { get; set; } = string.Empty; // Phương thức thanh toán (ví dụ: "Cash", "Card", "Momo", "ZaloPay")
+        public string PaymentMethod { get; set; } = string.Empty;
 
-        [MaxLength(100)]
-        public string? TransactionCode { get; set; } // Mã giao dịch của bên thứ 3 (ví dụ: mã giao dịch Momo)
-
-        [Required]
-        [MaxLength(50)]
-        public string PaymentStatus { get; set; } = "Pending"; // Trạng thái thanh toán (ví dụ: "Pending", "Success", "Failed")
-
-        [MaxLength(100)]
-        public string? BankName { get; set; } // Tên ngân hàng
-
-        [MaxLength(100)]
-        public string? AccountNumber { get; set; } // Số tài khoản/Ví điện tử
-
+        // MỚI: Lưu mã giao dịch sau khi chuyển khoản thành công (đã có từ trước, giữ nguyên)
         [MaxLength(255)]
-        public string? PayerName { get; set; } // Tên người thanh toán
+        public string? TransactionCode { get; set; }
+
+        [Required]
+        [MaxLength(50)]
+        public string PaymentStatus { get; set; } = string.Empty; // Ví dụ: "Success", "Pending", "Failed"
+
+        [MaxLength(100)]
+        public string? BankName { get; set; }
+
+        [MaxLength(50)]
+        public string? AccountNumber { get; set; }
+
+        [MaxLength(100)]
+        public string? PayerName { get; set; }
 
         [MaxLength(500)]
-        public string? Notes { get; set; } // Ghi chú thêm về thanh toán
+        public string? Notes { get; set; }
     }
 }

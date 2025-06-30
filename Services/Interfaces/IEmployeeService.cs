@@ -13,12 +13,9 @@ namespace DecalXeAPI.Services.Interfaces
         Task<bool> UpdateEmployeeAsync(string id, Employee employee);
         Task<bool> DeleteEmployeeAsync(string id);
 
-        // Phương thức lấy thống kê hiệu suất của nhân viên
-        Task<IEnumerable<EmployeePerformanceDto>> GetEmployeePerformanceStatisticsAsync();
 
-        // Các hàm kiểm tra tồn tại (Exists) cần thiết cho Service này
         Task<bool> EmployeeExistsAsync(string id);
-        Task<bool> StoreExistsAsync(string id); // Cần để kiểm tra FK
-        Task<bool> AccountExistsAsync(string id); // Cần để kiểm tra FK
+        Task<bool> StoreExistsAsync(string id);
+        Task<bool> AccountExistsAsync(string id);
     }
 }

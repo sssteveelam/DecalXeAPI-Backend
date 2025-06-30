@@ -159,12 +159,7 @@ namespace DecalXeAPI.Controllers
         // API Thống kê Hiệu suất Nhân viên
         [HttpGet("statistics/performance")]
         [Authorize(Roles = "Admin,Manager")] // Chỉ Admin, Manager được xem thống kê
-        public async Task<ActionResult<IEnumerable<EmployeePerformanceDto>>> GetEmployeePerformanceStatistics()
-        {
-            _logger.LogInformation("Yêu cầu thống kê hiệu suất nhân viên.");
-            var performanceData = await _employeeService.GetEmployeePerformanceStatisticsAsync();
-            return Ok(performanceData);
-        }
+        
 
         // --- HÀM HỖ TRỢ (PRIVATE): KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (Vẫn giữ ở Controller để kiểm tra FKs) ---
         private bool EmployeeExists(string id) { return _context.Employees.Any(e => e.EmployeeID == id); }

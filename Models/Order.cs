@@ -11,13 +11,12 @@ namespace DecalXeAPI.Models
         [Key]
         public string OrderID { get; set; } = Guid.NewGuid().ToString(); // PK
 
-        // Khóa ngoại (Foreign Key): Một Order thuộc về một Customer
         [ForeignKey("Customer")]
         public string CustomerID { get; set; } = string.Empty; // FK_CustomerID
         public Customer? Customer { get; set; }
 
         [Required]
-        public DateTime OrderDate { get; set; } = DateTime.UtcNow; // Ngày đặt hàng, dùng UtcNow cho chuẩn múi giờ
+        public DateTime OrderDate { get; set; } = DateTime.UtcNow;
 
         [Required]
         [Column(TypeName = "decimal(18,2)")]
@@ -25,49 +24,51 @@ namespace DecalXeAPI.Models
 
         [Required]
         [MaxLength(50)]
-        public string OrderStatus { get; set; } = string.Empty; // Trạng thái đơn hàng (ví dụ: "New", "Pending", "Completed", "Cancelled")
+        public string OrderStatus { get; set; } = string.Empty;
 
-        // Khóa ngoại (Foreign Key): Nhân viên được giao phụ trách đơn hàng này (ví dụ: sales staff)
         [ForeignKey("Employee")]
-        public string? AssignedEmployeeID { get; set; } // FK_AssignedEmployeeID (có thể null ban đầu)
+        public string? AssignedEmployeeID { get; set; }
         public Employee? AssignedEmployee { get; set; }
 
-        // Mối quan hệ 1-1 với CustomServiceRequest
-        [JsonIgnore] // Tránh lỗi vòng lặp JSON khi include Order từ CustomServiceRequest
-        public CustomServiceRequest? CustomServiceRequest { get; set; } // Navigation Property cho yêu cầu tùy chỉnh
+        [JsonIgnore]
+        public CustomServiceRequest? CustomServiceRequest { get; set; }
 
-        // --- CỘT VÀ NAVIGATION PROPERTIES MỚI TỪ YÊU CẦU REVIEW (đã có từ bước 2.1.5) ---
-        [ForeignKey("CustomerVehicle")] // Khóa ngoại tới xe của khách hàng
-        public string? VehicleID { get; set; } // Xe được dán decal (Nullable)
-        public CustomerVehicle? CustomerVehicle { get; set; } // Navigation Property
+        // --- CỘT VÀ NAVIGATION PROPERTIES TỪ REVIEW1/REVIEW2 ---
+        [ForeignKey("CustomerVehicle")]
+        public string? VehicleID { get; set; } // FK tới xe cụ thể của khách hàng
+        public CustomerVehicle? CustomerVehicle { get; set; }
 
-        public DateTime? ExpectedArrivalTime { get; set; } // Thời gian dự kiến khách hàng đến (Nullable)
+        public DateTime? ExpectedArrivalTime { get; set; }
 
-        [Required] // Bắt buộc phải có giai đoạn hiện tại
+        [Required]
         [MaxLength(50)]
-        public string CurrentStage { get; set; } = "New Profile"; // Giai đoạn hiện tại của đơn hàng
+        public string CurrentStage { get; set; } = "New Profile";
 
         [MaxLength(50)]
-        public string? Priority { get; set; } // Độ ưu tiên (ví dụ: "Low", "Medium", "High")
+        public string? Priority { get; set; }
 
-        public bool IsCustomDecal { get; set; } = false; // <-- MỚI: Đánh dấu đây có phải đơn hàng decal tùy chỉnh không
+        public bool IsCustomDecal { get; set; } = false;
 
-        // --- NAVIGATION PROPERTIES HIỆN CÓ (Giữ nguyên) ---
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
-        public ICollection<OrderDetail>? OrderDetails { get; set; }
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
-        public ICollection<Payment>? Payments { get; set; }
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
-        public ICollection<ScheduledWorkUnit>? ScheduledWorkUnits { get; set; }
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
-        public ICollection<Design>? Designs { get; set; }
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
-        public ICollection<Feedback>? Feedbacks { get; set; }
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
-        public ICollection<Warranty>? Warranties { get; set; }
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
-        public ICollection<OrderStageHistory>? OrderStageHistories { get; set; } // Lịch sử các giai đoạn của Order
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
-        public ICollection<OrderCompletionImage>? OrderCompletionImages { get; set; } // Ảnh sau khi hoàn tất
+        // MỚI TỪ REVIEW2: Thêm số khung trực tiếp vào Order
+        [MaxLength(50)] // Kích thước đủ cho số khung
+        public string? ChassisNumber { get; set; } // <-- MỚI: Số khung xe (trực tiếp trên Order)
+
+        // --- CÁC NAVIGATION PROPERTIES ĐƯỢC ĐIỀU CHỈNH/XÓA THEO REVIEW2 ---
+        [JsonIgnore]
+        public ICollection<OrderDetail>? OrderDetails { get; set; } // Giữ lại
+        
+        [JsonIgnore]
+        public ICollection<OrderStageHistory>? OrderStageHistories { get; set; } // Giữ lại
+
+        [JsonIgnore]
+        public ICollection<Deposit>? Deposits { get; set; } // <-- MỚI: Order có nhiều Deposit (Tiền cọc)
+
+        // Các Navigation Property đã bị xóa vì bảng/mối quan hệ bị loại bỏ/thay đổi:
+        // public ICollection<Payment>? Payments { get; set; } // ĐÃ XÓA (Payment vẫn tồn tại nhưng không còn NP trực tiếp)
+        // public ICollection<ScheduledWorkUnit>? ScheduledWorkUnits { get; set; } // ĐÃ XÓA
+        // public ICollection<Design>? Designs { get; set; } // ĐÃ XÓA (Design giờ không còn OrderID trực tiếp)
+        // public ICollection<Feedback>? Feedbacks { get; set; } // ĐÃ XÓA
+        // public ICollection<Warranty>? Warranties { get; set; } // ĐÃ XÓA
+        // public ICollection<OrderCompletionImage>? OrderCompletionImages { get; set; } // ĐÃ XÓA
     }
 }

@@ -1,5 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Collections.Generic;
+using System.Text.Json.Serialization;
+using System; // For Guid
 
 namespace DecalXeAPI.Models
 {
@@ -8,32 +11,48 @@ namespace DecalXeAPI.Models
         [Key]
         public string DesignID { get; set; } = Guid.NewGuid().ToString(); // PK
 
-        // Khóa ngoại (Foreign Key): Bản thiết kế này thuộc về Order nào
-        public string OrderID { get; set; } = string.Empty; // FK_OrderID
-        // Navigation Property: Một Design có một Order
-        public Order? Order { get; set; }
+        // --- CỘT ĐÃ BỊ XÓA THEO REVIEW2 ---
+        // [ForeignKey("Order")] // <-- ĐÃ XÓA DÒNG NÀY (FK)
+        // public string OrderID { get; set; } = string.Empty; // <-- ĐÃ XÓA DÒNG NÀY
+        // [JsonIgnore]
+        // public Order? Order { get; set; } // <-- ĐÃ XÓA DÒNG NÀY
 
         [Required]
         [MaxLength(500)]
-        public string DesignURL { get; set; } = string.Empty; // URL của file thiết kế
+        public string DesignURL { get; set; } = string.Empty; // URL file thiết kế
 
-        // Khóa ngoại (Foreign Key): Nhân viên nào đã thiết kế bản này
-        public string? DesignerID { get; set; } // FK_DesignerID
-        // Navigation Property: Một Design có một Designer (Employee)
+        [ForeignKey("Employee")]
+        public string? DesignerID { get; set; }
         public Employee? Designer { get; set; }
 
         [Required]
         [MaxLength(50)]
-        public string Version { get; set; } = "1.0"; // Phiên bản thiết kế
+        public string Version { get; set; } = string.Empty;
 
         [Required]
         [MaxLength(50)]
-        public string ApprovalStatus { get; set; } = "Pending"; // Trạng thái phê duyệt (ví dụ: "Pending", "Approved", "Rejected")
+        public string ApprovalStatus { get; set; } = string.Empty;
 
-        public bool IsAIGenerated { get; set; } = false; // Có phải thiết kế được tạo bởi AI không
+        public bool IsAIGenerated { get; set; } = false;
+
         [MaxLength(100)]
-        public string? AIModelUsed { get; set; } // Tên model AI nếu có
-        [MaxLength(1000)]
-        public string? AIPrompt { get; set; } // Prompt đã dùng cho AI nếu có
+        public string? AIModelUsed { get; set; }
+
+        // public string? AIPrompt { get; set; } // <-- ĐÃ XÓA DÒNG NÀY (theo yêu cầu "bỏ allPromt")
+
+        // --- CỘT MỚI TỪ YÊU CẦU REVIEW2 ---
+        [Required] // Tiền thiết kế là bắt buộc nếu có design
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal DesignPrice { get; set; } // <-- MỚI: Tiền thiết kế cho bản thiết kế này
+
+
+        // Navigation Property: Một Design có nhiều DesignComment
+        [JsonIgnore]
+        public ICollection<DesignComment>? DesignComments { get; set; }
+
+        // Navigation Property: Một Design có thể có một DesignWorkOrder (Order của Designer)
+        // Mối quan hệ 1-0..1 Design -> DesignWorkOrder (DesignID vừa là PK vừa là FK trong DesignWorkOrder)
+        [JsonIgnore]
+        public DesignWorkOrder? DesignWorkOrder { get; set; }
     }
 }

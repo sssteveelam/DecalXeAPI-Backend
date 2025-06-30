@@ -28,7 +28,14 @@ namespace DecalXeAPI.Services.Implementations
         public async Task<IEnumerable<ProductDto>> GetProductsAsync()
         {
             _logger.LogInformation("Lấy danh sách sản phẩm.");
-            var products = await _context.Products.ToListAsync();
+            // Product giờ sẽ Include ServiceVehicleModelProducts thay vì ServiceProducts
+            var products = await _context.Products
+                                        .Include(p => p.ServiceVehicleModelProducts!) // <-- MỚI: Thêm include cho bảng mới
+                                            .ThenInclude(svmp => svmp.DecalService) // Include DecalService
+                                        .Include(p => p.ServiceVehicleModelProducts!) // Include lại để ThenInclude VehicleModel
+                                            .ThenInclude(svmp => svmp.VehicleModel!) // Include VehicleModel
+                                                .ThenInclude(vm => vm.VehicleBrand) // Include VehicleBrand
+                                        .ToListAsync();
             var productDtos = _mapper.Map<List<ProductDto>>(products);
             return productDtos;
         }
@@ -36,7 +43,13 @@ namespace DecalXeAPI.Services.Implementations
         public async Task<ProductDto?> GetProductByIdAsync(string id)
         {
             _logger.LogInformation("Yêu cầu lấy sản phẩm với ID: {ProductID}", id);
-            var product = await _context.Products.FindAsync(id);
+            var product = await _context.Products
+                                        .Include(p => p.ServiceVehicleModelProducts!) // <-- MỚI: Thêm include cho bảng mới
+                                            .ThenInclude(svmp => svmp.DecalService)
+                                        .Include(p => p.ServiceVehicleModelProducts!)
+                                            .ThenInclude(svmp => svmp.VehicleModel!)
+                                                .ThenInclude(vm => vm.VehicleBrand)
+                                        .FirstOrDefaultAsync(p => p.ProductID == id);
 
             if (product == null)
             {
@@ -52,8 +65,14 @@ namespace DecalXeAPI.Services.Implementations
         public async Task<ProductDto> CreateProductAsync(Product product)
         {
             _logger.LogInformation("Yêu cầu tạo sản phẩm mới: {ProductName}", product.ProductName);
+
             _context.Products.Add(product);
             await _context.SaveChangesAsync();
+
+            // Tải lại Navigation Properties để có dữ liệu cho DTO
+            // Product không có nhiều Navigation Properties phức tạp để load lại ở đây
+            // Nếu có thì cần include các ServiceVehicleModelProducts để load Product
+            // await _context.Entry(product).Collection(p => p.ServiceVehicleModelProducts!).LoadAsync(); // Load lại collection
 
             var productDto = _mapper.Map<ProductDto>(product);
             _logger.LogInformation("Đã tạo sản phẩm mới với ID: {ProductID}", product.ProductID);
@@ -99,6 +118,14 @@ namespace DecalXeAPI.Services.Implementations
             {
                 _logger.LogWarning("Không tìm thấy sản phẩm để xóa với ID: {ProductID}", id);
                 return false;
+            }
+
+            // Kiểm tra các mối quan hệ trước khi xóa Product
+            if (await _context.OrderDetails.AnyAsync(od => od.DecalService!.ServiceVehicleModelProducts!.Any(scm => scm.ProductID == id)) || // Kiểm tra OrderDetail qua ServiceVehicleModelProduct
+                await _context.ServiceVehicleModelProducts.AnyAsync(scm => scm.ProductID == id)) // <-- MỚI: Kiểm tra ServiceVehicleModelProduct
+            {
+                _logger.LogWarning("Không thể xóa sản phẩm {ProductID} vì đang được sử dụng trong chi tiết đơn hàng hoặc liên kết dịch vụ/mẫu xe.", id);
+                throw new InvalidOperationException("Không thể xóa sản phẩm này vì đang được sử dụng trong chi tiết đơn hàng hoặc liên kết dịch vụ/mẫu xe.");
             }
 
             _context.Products.Remove(product);

@@ -1,28 +1,28 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using DecalXeAPI.Data; // Vẫn cần DbContext cho các hàm Exists cơ bản
+using DecalXeAPI.Data;
 using DecalXeAPI.Models;
 using DecalXeAPI.DTOs;
-using DecalXeAPI.Services.Interfaces; // <-- THÊM DÒNG NÀY (Để sử dụng IWarrantyService)
+using DecalXeAPI.Services.Interfaces;
 using AutoMapper;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
-using System; // Để sử dụng ArgumentException
+using System;
 
 namespace DecalXeAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin,Manager,Sales")] // Quyền cho WarrantiesController
+    [Authorize(Roles = "Admin,Manager,Sales")]
     public class WarrantiesController : ControllerBase
     {
-        private readonly ApplicationDbContext _context; // Vẫn giữ để dùng các hàm Exists cơ bản
-        private readonly IWarrantyService _warrantyService; // <-- KHAI BÁO BIẾN CHO SERVICE
+        private readonly ApplicationDbContext _context;
+        private readonly IWarrantyService _warrantyService;
         private readonly IMapper _mapper;
         private readonly ILogger<WarrantiesController> _logger;
 
-        public WarrantiesController(ApplicationDbContext context, IWarrantyService warrantyService, IMapper mapper, ILogger<WarrantiesController> logger) // <-- TIÊM IWarrantyService
+        public WarrantiesController(ApplicationDbContext context, IWarrantyService warrantyService, IMapper mapper, ILogger<WarrantiesController> logger)
         {
             _context = context;
             _warrantyService = warrantyService;
@@ -57,14 +57,14 @@ namespace DecalXeAPI.Controllers
 
         // API: POST api/Warranties
         [HttpPost]
-        public async Task<ActionResult<WarrantyDto>> PostWarranty(Warranty warranty) // Vẫn nhận Model
+        public async Task<ActionResult<WarrantyDto>> PostWarranty(Warranty warranty)
         {
-            _logger.LogInformation("Yêu cầu tạo bảo hành mới cho OrderID: {OrderID}", warranty.OrderID);
+            _logger.LogInformation("Yêu cầu tạo bảo hành mới cho VehicleID: {VehicleID}", warranty.VehicleID);
 
-            // --- KIỂM TRA FKs CHÍNH TRƯỚC KHI GỬI VÀO SERVICE ---
-            if (!string.IsNullOrEmpty(warranty.OrderID) && !OrderExists(warranty.OrderID))
+            // Kiểm tra VehicleID (FK) trước khi gọi Service
+            if (!string.IsNullOrEmpty(warranty.VehicleID) && !CustomerVehicleExists(warranty.VehicleID))
             {
-                return BadRequest("OrderID không tồn tại.");
+                return BadRequest("VehicleID không tồn tại.");
             }
 
             try
@@ -90,10 +90,10 @@ namespace DecalXeAPI.Controllers
                 return BadRequest();
             }
 
-            // Kiểm tra FKs chính
-            if (!string.IsNullOrEmpty(warranty.OrderID) && !OrderExists(warranty.OrderID))
+            // Kiểm tra VehicleID (FK) trước khi gọi Service
+            if (!string.IsNullOrEmpty(warranty.VehicleID) && !CustomerVehicleExists(warranty.VehicleID))
             {
-                return BadRequest("OrderID không tồn tại.");
+                return BadRequest("VehicleID không tồn tại.");
             }
 
             try
@@ -132,19 +132,27 @@ namespace DecalXeAPI.Controllers
         public async Task<IActionResult> DeleteWarranty(string id)
         {
             _logger.LogInformation("Yêu cầu xóa bảo hành với ID: {WarrantyID}", id);
-            var success = await _warrantyService.DeleteWarrantyAsync(id);
-
-            if (!success)
+            try
             {
-                _logger.LogWarning("Không tìm thấy bảo hành để xóa với ID: {WarrantyID}", id);
-                return NotFound();
-            }
+                var success = await _warrantyService.DeleteWarrantyAsync(id);
 
-            return NoContent();
+                if (!success)
+                {
+                    _logger.LogWarning("Không tìm thấy bảo hành để xóa với ID: {WarrantyID}", id);
+                    return NotFound();
+                }
+
+                return NoContent();
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogError(ex, "Lỗi nghiệp vụ khi xóa bảo hành: {ErrorMessage}", ex.Message);
+                return BadRequest(ex.Message);
+            }
         }
 
         // --- HÀM HỖ TRỢ (PRIVATE): KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (Vẫn giữ ở Controller để kiểm tra FKs) ---
         private bool WarrantyExists(string id) { return _context.Warranties.Any(e => e.WarrantyID == id); }
-        private bool OrderExists(string id) { return _context.Orders.Any(e => e.OrderID == id); }
+        private bool CustomerVehicleExists(string id) { return _context.CustomerVehicles.Any(e => e.VehicleID == id); }
     }
 }

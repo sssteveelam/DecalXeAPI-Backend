@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using DecalXeAPI.Data;
 using DecalXeAPI.Models;
 using DecalXeAPI.DTOs;
-using DecalXeAPI.Services.Interfaces; // <-- THÊM DÒNG NÀY (Để sử dụng IProductService)
+using DecalXeAPI.Services.Interfaces;
 using AutoMapper;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Authorization;
@@ -18,11 +18,11 @@ namespace DecalXeAPI.Controllers
     public class ProductsController : ControllerBase
     {
         private readonly ApplicationDbContext _context; // Vẫn giữ để dùng các hàm Exists cơ bản
-        private readonly IProductService _productService; // <-- KHAI BÁO BIẾN CHO SERVICE
+        private readonly IProductService _productService;
         private readonly IMapper _mapper;
         private readonly ILogger<ProductsController> _logger;
 
-        public ProductsController(ApplicationDbContext context, IProductService productService, IMapper mapper, ILogger<ProductsController> logger) // <-- TIÊM IProductService
+        public ProductsController(ApplicationDbContext context, IProductService productService, IMapper mapper, ILogger<ProductsController> logger)
         {
             _context = context;
             _productService = productService;
@@ -60,13 +60,14 @@ namespace DecalXeAPI.Controllers
         public async Task<ActionResult<ProductDto>> PostProduct(Product product) // Vẫn nhận Product Model
         {
             _logger.LogInformation("Yêu cầu tạo sản phẩm mới: {ProductName}", product.ProductName);
+
             try
             {
                 var createdProductDto = await _productService.CreateProductAsync(product);
                 _logger.LogInformation("Đã tạo sản phẩm mới với ID: {ProductID}", createdProductDto.ProductID);
                 return CreatedAtAction(nameof(GetProduct), new { id = createdProductDto.ProductID }, createdProductDto);
             }
-            catch (ArgumentException ex)
+            catch (ArgumentException ex) // Bắt lỗi từ Service nếu có
             {
                 _logger.LogError(ex, "Lỗi nghiệp vụ khi tạo sản phẩm: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
@@ -101,7 +102,7 @@ namespace DecalXeAPI.Controllers
                 _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật sản phẩm: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
             }
-            catch (DbUpdateConcurrencyException) // Vẫn bắt riêng lỗi này ở Controller
+            catch (DbUpdateConcurrencyException)
             {
                 if (!ProductExists(id))
                 {
@@ -119,15 +120,23 @@ namespace DecalXeAPI.Controllers
         public async Task<IActionResult> DeleteProduct(string id)
         {
             _logger.LogInformation("Yêu cầu xóa sản phẩm với ID: {ProductID}", id);
-            var success = await _productService.DeleteProductAsync(id);
-
-            if (!success)
+            try
             {
-                _logger.LogWarning("Không tìm thấy sản phẩm để xóa với ID: {ProductID}", id);
-                return NotFound();
-            }
+                var success = await _productService.DeleteProductAsync(id);
 
-            return NoContent();
+                if (!success)
+                {
+                    _logger.LogWarning("Không tìm thấy sản phẩm để xóa với ID: {ProductID}", id);
+                    return NotFound();
+                }
+
+                return NoContent();
+            }
+            catch (InvalidOperationException ex) // Bắt lỗi nghiệp vụ nếu đang được sử dụng
+            {
+                _logger.LogError(ex, "Lỗi nghiệp vụ khi xóa sản phẩm: {ErrorMessage}", ex.Message);
+                return BadRequest(ex.Message);
+            }
         }
 
         // --- HÀM HỖ TRỢ (PRIVATE): KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (Vẫn giữ ở Controller để kiểm tra FKs) ---

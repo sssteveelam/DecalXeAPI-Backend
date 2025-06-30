@@ -12,7 +12,7 @@ using System;
 
 namespace DecalXeAPI.Services.Implementations
 {
-    public class EmployeeService : IEmployeeService // <-- Kế thừa từ IEmployeeService
+    public class EmployeeService : IEmployeeService
     {
         private readonly ApplicationDbContext _context;
         private readonly IMapper _mapper;
@@ -32,6 +32,7 @@ namespace DecalXeAPI.Services.Implementations
                                             .Include(e => e.Account)
                                                 .ThenInclude(a => a.Role)
                                             .Include(e => e.Store)
+                                            // .Include(e => e.TechnicianDailySchedules) // <-- ĐÃ XÓA INCLUDE NÀY
                                             .ToListAsync();
             var employeeDtos = _mapper.Map<List<EmployeeDto>>(employees);
             return employeeDtos;
@@ -61,7 +62,6 @@ namespace DecalXeAPI.Services.Implementations
         {
             _logger.LogInformation("Yêu cầu tạo nhân viên mới: {FirstName} {LastName}", employee.FirstName, employee.LastName);
 
-            // Kiểm tra FKs
             if (!string.IsNullOrEmpty(employee.StoreID) && !await StoreExistsAsync(employee.StoreID))
             {
                 _logger.LogWarning("StoreID không tồn tại khi tạo nhân viên: {StoreID}", employee.StoreID);
@@ -104,7 +104,6 @@ namespace DecalXeAPI.Services.Implementations
                 return false;
             }
 
-            // Kiểm tra FKs
             if (!string.IsNullOrEmpty(employee.StoreID) && !await StoreExistsAsync(employee.StoreID))
             {
                 _logger.LogWarning("StoreID không tồn tại khi cập nhật nhân viên: {StoreID}", employee.StoreID);
@@ -141,51 +140,47 @@ namespace DecalXeAPI.Services.Implementations
                 return false;
             }
 
+            // Kiểm tra các mối quan hệ trước khi xóa Employee
+            if (await _context.Orders.AnyAsync(o => o.AssignedEmployeeID == id) ||
+                await _context.Designs.AnyAsync(d => d.DesignerID == id) ||
+                await _context.CustomServiceRequests.AnyAsync(csr => csr.SalesEmployeeID == id) ||
+                await _context.OrderStageHistories.AnyAsync(osh => osh.ChangedByEmployeeID == id) ||
+                await _context.Payments.AnyAsync(p => p.PayerName == (employee.FirstName + " " + employee.LastName)) // Giữ lại nếu PayerName là tên nhân viên
+            )
+            {
+                _logger.LogWarning("Không thể xóa nhân viên {EmployeeID} vì đang được sử dụng bởi Orders, Designs, CustomServiceRequests, OrderStageHistories hoặc Payments.", id);
+                throw new InvalidOperationException("Không thể xóa nhân viên này vì đang được sử dụng bởi các đơn hàng, thiết kế, yêu cầu tùy chỉnh, lịch sử giai đoạn hoặc thanh toán.");
+            }
+
+            // Nếu bạn có các bảng AdminDetail, ManagerDetail, SalesPersonDetail, DesignerDetail, TechnicianDetail
+            // thì cần thêm kiểm tra ràng buộc ở đây:
+            if (await _context.AdminDetails.AnyAsync(ad => ad.EmployeeID == id) ||
+                await _context.ManagerDetails.AnyAsync(md => md.EmployeeID == id) ||
+                await _context.SalesPersonDetails.AnyAsync(spd => spd.EmployeeID == id) ||
+                await _context.DesignerDetails.AnyAsync(dd => dd.EmployeeID == id) ||
+                await _context.TechnicianDetails.AnyAsync(td => td.EmployeeID == id))
+            {
+                _logger.LogWarning("Không thể xóa nhân viên {EmployeeID} vì đang được sử dụng bởi một vai trò chi tiết (Admin, Manager, Sales, Designer, Technician).", id);
+                throw new InvalidOperationException("Không thể xóa nhân viên này vì đang được sử dụng bởi một vai trò chi tiết.");
+            }
+
+
             _context.Employees.Remove(employee);
             await _context.SaveChangesAsync();
             _logger.LogInformation("Đã xóa nhân viên với ID: {EmployeeID}", id);
             return true;
         }
 
-        // Lấy thống kê hiệu suất của nhân viên
-        public async Task<IEnumerable<EmployeePerformanceDto>> GetEmployeePerformanceStatisticsAsync()
-        {
-            _logger.LogInformation("Yêu cầu lấy thống kê hiệu suất nhân viên.");
-            var performanceData = await _context.Employees
-                .Include(e => e.TechnicianDailySchedules!)
-                    .ThenInclude(tds => tds.ScheduledWorkUnits!)
-                .Where(e => e.TechnicianDailySchedules != null && e.TechnicianDailySchedules.Any())
-                .ToListAsync();
+        // BỎ PHƯƠNG THỨC THỐNG KÊ HIỆU SUẤT VÌ PHỤ THUỘC BẢNG ĐÃ XÓA
+        // public async Task<IEnumerable<EmployeePerformanceDto>> GetEmployeePerformanceStatisticsAsync()
+        // {
+        //     // Logic này phụ thuộc vào TechnicianDailySchedules và ScheduledWorkUnits (đã bị xóa)
+        //     // Nên phương thức này đã được loại bỏ
+        //     throw new NotImplementedException("Phương thức GetEmployeePerformanceStatisticsAsync không còn được hỗ trợ với cấu trúc database hiện tại.");
+        // }
 
-            var performanceDtos = new List<EmployeePerformanceDto>();
 
-            foreach (var employee in performanceData)
-            {
-                int completedUnits = 0;
-                int totalAssignedUnits = 0;
-
-                foreach (var dailySchedule in employee.TechnicianDailySchedules!) // ! để bỏ qua warning
-                {
-                    completedUnits += dailySchedule.ScheduledWorkUnits?.Count(swu => swu.Status == "Completed") ?? 0;
-                    totalAssignedUnits += dailySchedule.ScheduledWorkUnits?.Count(swu => !string.IsNullOrEmpty(swu.OrderID)) ?? 0;
-                }
-
-                decimal completionRate = totalAssignedUnits > 0 ? (decimal)completedUnits / totalAssignedUnits * 100 : 0;
-
-                performanceDtos.Add(new EmployeePerformanceDto
-                {
-                    EmployeeID = employee.EmployeeID,
-                    EmployeeFullName = $"{employee.FirstName} {employee.LastName}",
-                    CompletedWorkUnits = completedUnits,
-                    TotalAssignedWorkUnits = totalAssignedUnits,
-                    CompletionRate = Math.Round(completionRate, 2)
-                });
-            }
-            _logger.LogInformation("Đã trả về {Count} bản ghi thống kê hiệu suất nhân viên.", performanceDtos.Count);
-            return performanceDtos.OrderByDescending(p => p.CompletedWorkUnits);
-        }
-
-        // --- HÀM HỖ TRỢ: KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (PUBLIC CHO INTERFACE) ---
+        // Hàm hỗ trợ: Kiểm tra sự tồn tại của các đối tượng (PUBLIC CHO INTERFACE)
         public async Task<bool> EmployeeExistsAsync(string id)
         {
             return await _context.Employees.AnyAsync(e => e.EmployeeID == id);

@@ -30,7 +30,6 @@ namespace DecalXeAPI.Services.Implementations
             _logger.LogInformation("Lấy danh sách thanh toán.");
             var payments = await _context.Payments
                                         .Include(p => p.Order)
-                                        .Include(p => p.Promotion)
                                         .ToListAsync();
             var paymentDtos = _mapper.Map<List<PaymentDto>>(payments);
             return paymentDtos;
@@ -41,7 +40,6 @@ namespace DecalXeAPI.Services.Implementations
             _logger.LogInformation("Yêu cầu lấy thanh toán với ID: {PaymentID}", id);
             var payment = await _context.Payments
                                         .Include(p => p.Order)
-                                        .Include(p => p.Promotion)
                                         .FirstOrDefaultAsync(p => p.PaymentID == id);
 
             if (payment == null)
@@ -65,18 +63,13 @@ namespace DecalXeAPI.Services.Implementations
                 _logger.LogWarning("OrderID không tồn tại khi tạo thanh toán: {OrderID}", payment.OrderID);
                 throw new ArgumentException("OrderID không tồn tại.");
             }
-            if (!string.IsNullOrEmpty(payment.PromotionID) && !await PromotionExistsAsync(payment.PromotionID))
-            {
-                _logger.LogWarning("PromotionID không tồn tại khi tạo thanh toán: {PromotionID}", payment.PromotionID);
-                throw new ArgumentException("PromotionID không tồn tại.");
-            }
+          
 
             _context.Payments.Add(payment);
             await _context.SaveChangesAsync();
 
             // Tải lại thông tin liên quan để AutoMapper có thể ánh xạ đầy đủ
             await _context.Entry(payment).Reference(p => p.Order).LoadAsync();
-            await _context.Entry(payment).Reference(p => p.Promotion).LoadAsync();
 
             var paymentDto = _mapper.Map<PaymentDto>(payment);
             _logger.LogInformation("Đã tạo thanh toán mới với ID: {PaymentID}", payment.PaymentID);
@@ -105,11 +98,7 @@ namespace DecalXeAPI.Services.Implementations
                 _logger.LogWarning("OrderID không tồn tại khi cập nhật thanh toán: {OrderID}", payment.OrderID);
                 throw new ArgumentException("OrderID không tồn tại.");
             }
-            if (!string.IsNullOrEmpty(payment.PromotionID) && !await PromotionExistsAsync(payment.PromotionID))
-            {
-                _logger.LogWarning("PromotionID không tồn tại khi cập nhật thanh toán: {PromotionID}", payment.PromotionID);
-                throw new ArgumentException("PromotionID không tồn tại.");
-            }
+           
 
             _context.Entry(payment).State = EntityState.Modified;
 
@@ -153,9 +142,6 @@ namespace DecalXeAPI.Services.Implementations
             return await _context.Orders.AnyAsync(e => e.OrderID == id);
         }
 
-        public async Task<bool> PromotionExistsAsync(string id)
-        {
-            return await _context.Promotions.AnyAsync(e => e.PromotionID == id);
-        }
+       
     }
 }

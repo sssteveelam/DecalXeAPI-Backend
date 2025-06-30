@@ -1,7 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Collections.Generic;
-using System.Text.Json.Serialization; // Để dùng [JsonIgnore]
+using System.Text.Json.Serialization;
+using System; // For Guid
 
 namespace DecalXeAPI.Models
 {
@@ -23,24 +24,30 @@ namespace DecalXeAPI.Models
 
         public int StandardWorkUnits { get; set; } // Số lượng xuất công tiêu chuẩn cho dịch vụ này
 
-        // Khóa ngoại (Foreign Key): Một DecalService thuộc về một DecalType
         [ForeignKey("DecalType")]
-        public string DecalTypeID { get; set; } = string.Empty; // FK_DecalTypeID
+        public string DecalTypeID { get; set; } = string.Empty;
         public DecalType? DecalType { get; set; }
 
-        // --- NAVIGATION PROPERTY MỚI TỪ YÊU CẦU REVIEW ---
-        // Mối quan hệ 1-0..1 với PrintingPriceDetail (PrintingPriceDetail.ServiceID là PK/FK)
-        // EF Core sẽ tự hiểu mối quan hệ 1-1 nếu FK của PrintingPriceDetail là PK của nó và trỏ về đây.
-        // Đây chỉ là Navigation Property từ phía "một" (DecalService) đến PrintingPriceDetail.
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON nếu PrintingPriceDetail có Navigation Property ngược lại.
+        // Mối quan hệ 1-0..1 với PrintingPriceDetail
+        [JsonIgnore]
         public PrintingPriceDetail? PrintingPriceDetail { get; set; }
 
-        // --- NAVIGATION PROPERTIES HIỆN CÓ (Giữ nguyên) ---
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
-        public ICollection<OrderDetail>? OrderDetails { get; set; }
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
-        public ICollection<ServiceProduct>? ServiceProducts { get; set; }
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
-        public ICollection<ServiceDecalTemplate>? ServiceDecalTemplates { get; set; }
+        // --- CÁC NAVIGATION PROPERTIES ĐƯỢC ĐIỀU CHỈNH/THÊM THEO REVIEW2 ---
+        [JsonIgnore]
+        public ICollection<OrderDetail>? OrderDetails { get; set; } // Giữ lại
+        
+        [JsonIgnore]
+        public ICollection<ServiceDecalTemplate>? ServiceDecalTemplates { get; set; } // Giữ lại
+
+        // public ICollection<ServiceProduct>? ServiceProducts { get; set; } // <-- ĐÃ XÓA (thay bằng ServiceCarModelProduct)
+
+        [JsonIgnore]
+        public ICollection<ServiceVehicleModelProduct>? ServiceVehicleModelProducts { get; set; } // <-- MỚI: Bảng liên kết 3 chiều
+
+        [JsonIgnore]
+        public ICollection<TechLaborPrice>? TechLaborPrices { get; set; } // <-- MỚI: Bảng giá công kỹ thuật
+
+        [JsonIgnore]
+        public ICollection<DesignWorkOrder>? DesignWorkOrders { get; set; } // <-- MỚI: Bảng đơn hàng công việc thiết kế
     }
 }

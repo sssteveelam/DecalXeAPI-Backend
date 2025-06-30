@@ -12,7 +12,7 @@ using System;
 
 namespace DecalXeAPI.Services.Implementations
 {
-    public class WarrantyService : IWarrantyService // <-- Kế thừa từ IWarrantyService
+    public class WarrantyService : IWarrantyService
     {
         private readonly ApplicationDbContext _context;
         private readonly IMapper _mapper;
@@ -28,7 +28,11 @@ namespace DecalXeAPI.Services.Implementations
         public async Task<IEnumerable<WarrantyDto>> GetWarrantiesAsync()
         {
             _logger.LogInformation("Lấy danh sách bảo hành.");
-            var warranties = await _context.Warranties.Include(w => w.Order).ToListAsync();
+            var warranties = await _context.Warranties
+                                            .Include(w => w.CustomerVehicle!) // MỚI: Include CustomerVehicle
+                                                .ThenInclude(cv => cv.VehicleModel!) // MỚI: Include VehicleModel
+                                                    .ThenInclude(vm => vm.VehicleBrand!) // MỚI: Include VehicleBrand
+                                            .ToListAsync();
             var warrantyDtos = _mapper.Map<List<WarrantyDto>>(warranties);
             return warrantyDtos;
         }
@@ -36,7 +40,11 @@ namespace DecalXeAPI.Services.Implementations
         public async Task<WarrantyDto?> GetWarrantyByIdAsync(string id)
         {
             _logger.LogInformation("Yêu cầu lấy bảo hành với ID: {WarrantyID}", id);
-            var warranty = await _context.Warranties.Include(w => w.Order).FirstOrDefaultAsync(w => w.WarrantyID == id);
+            var warranty = await _context.Warranties
+                                            .Include(w => w.CustomerVehicle!)
+                                                .ThenInclude(cv => cv.VehicleModel!)
+                                                    .ThenInclude(vm => vm.VehicleBrand!)
+                                            .FirstOrDefaultAsync(w => w.WarrantyID == id);
 
             if (warranty == null)
             {
@@ -51,20 +59,27 @@ namespace DecalXeAPI.Services.Implementations
 
         public async Task<WarrantyDto> CreateWarrantyAsync(Warranty warranty)
         {
-            _logger.LogInformation("Yêu cầu tạo bảo hành mới cho OrderID: {OrderID}", warranty.OrderID);
+            _logger.LogInformation("Yêu cầu tạo bảo hành mới cho VehicleID: {VehicleID}", warranty.VehicleID);
 
-            // Kiểm tra FKs
-            if (!string.IsNullOrEmpty(warranty.OrderID) && !await OrderExistsAsync(warranty.OrderID))
+            // Kiểm tra VehicleID có tồn tại không
+            if (!string.IsNullOrEmpty(warranty.VehicleID) && !await CustomerVehicleExistsAsync(warranty.VehicleID))
             {
-                _logger.LogWarning("OrderID không tồn tại khi tạo Warranty: {OrderID}", warranty.OrderID);
-                throw new ArgumentException("OrderID không tồn tại.");
+                _logger.LogWarning("VehicleID không tồn tại khi tạo Warranty: {VehicleID}", warranty.VehicleID);
+                throw new ArgumentException("VehicleID không tồn tại.");
             }
 
             _context.Warranties.Add(warranty);
             await _context.SaveChangesAsync();
 
-            // Tải lại thông tin liên quan
-            await _context.Entry(warranty).Reference(w => w.Order).LoadAsync();
+            await _context.Entry(warranty).Reference(w => w.CustomerVehicle).LoadAsync(); // MỚI: Load CustomerVehicle
+            if (warranty.CustomerVehicle != null) // MỚI
+            {
+                await _context.Entry(warranty.CustomerVehicle).Reference(cv => cv.VehicleModel).LoadAsync(); // MỚI
+                if (warranty.CustomerVehicle.VehicleModel != null) // MỚI
+                {
+                    await _context.Entry(warranty.CustomerVehicle.VehicleModel).Reference(vm => vm.VehicleBrand).LoadAsync(); // MỚI
+                }
+            }
 
             var warrantyDto = _mapper.Map<WarrantyDto>(warranty);
             _logger.LogInformation("Đã tạo bảo hành mới với ID: {WarrantyID}", warranty.WarrantyID);
@@ -87,11 +102,11 @@ namespace DecalXeAPI.Services.Implementations
                 return false;
             }
 
-            // Kiểm tra FKs
-            if (!string.IsNullOrEmpty(warranty.OrderID) && !await OrderExistsAsync(warranty.OrderID))
+            // Kiểm tra VehicleID
+            if (!string.IsNullOrEmpty(warranty.VehicleID) && !await CustomerVehicleExistsAsync(warranty.VehicleID))
             {
-                _logger.LogWarning("OrderID không tồn tại khi cập nhật Warranty: {OrderID}", warranty.OrderID);
-                throw new ArgumentException("OrderID không tồn tại.");
+                _logger.LogWarning("VehicleID không tồn tại khi cập nhật Warranty: {VehicleID}", warranty.VehicleID);
+                throw new ArgumentException("VehicleID không tồn tại.");
             }
 
             _context.Entry(warranty).State = EntityState.Modified;
@@ -131,9 +146,14 @@ namespace DecalXeAPI.Services.Implementations
             return await _context.Warranties.AnyAsync(e => e.WarrantyID == id);
         }
 
+        public async Task<bool> CustomerVehicleExistsAsync(string id)
+        {
+            return await _context.CustomerVehicles.AnyAsync(e => e.VehicleID == id);
+        }
+
         public async Task<bool> OrderExistsAsync(string id)
         {
-            return await _context.Orders.AnyAsync(e => e.OrderID == id);
+            return await _context.Orders.AnyAsync(o => o.OrderID == id);
         }
     }
 }

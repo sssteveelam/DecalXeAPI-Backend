@@ -13,8 +13,8 @@ namespace DecalXeAPI.Services.Interfaces
         Task<bool> UpdateWarrantyAsync(string id, Warranty warranty);
         Task<bool> DeleteWarrantyAsync(string id);
 
-        // Các hàm kiểm tra tồn tại (Exists) cần thiết cho Service này
         Task<bool> WarrantyExistsAsync(string id);
-        Task<bool> OrderExistsAsync(string id); // Cần để kiểm tra FK
+        Task<bool> CustomerVehicleExistsAsync(string id); // Giữ lại
+        // Task<bool> OrderExistsAsync(string id); // <-- ĐÃ XÓA DÒNG NÀY!
     }
 }

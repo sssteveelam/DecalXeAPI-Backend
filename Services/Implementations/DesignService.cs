@@ -28,7 +28,6 @@ namespace DecalXeAPI.Services.Implementations
         {
             _logger.LogInformation("Lấy danh sách thiết kế.");
             var designs = await _context.Designs
-                                        .Include(d => d.Order)
                                         .Include(d => d.Designer)
                                         .ToListAsync();
             var designDtos = _mapper.Map<List<DesignDto>>(designs);
@@ -39,7 +38,6 @@ namespace DecalXeAPI.Services.Implementations
         {
             _logger.LogInformation("Yêu cầu lấy thiết kế với ID: {DesignID}", id);
             var design = await _context.Designs
-                                        .Include(d => d.Order)
                                         .Include(d => d.Designer)
                                         .FirstOrDefaultAsync(d => d.DesignID == id);
 
@@ -56,14 +54,7 @@ namespace DecalXeAPI.Services.Implementations
 
         public async Task<DesignDto> CreateDesignAsync(Design design)
         {
-            _logger.LogInformation("Yêu cầu tạo thiết kế mới cho OrderID: {OrderID}", design.OrderID);
-
-            // Kiểm tra FKs (Service sẽ kiểm tra lại để đảm bảo tính toàn vẹn)
-            if (!string.IsNullOrEmpty(design.OrderID) && !await OrderExistsAsync(design.OrderID))
-            {
-                _logger.LogWarning("OrderID không tồn tại khi tạo thiết kế: {OrderID}", design.OrderID);
-                throw new ArgumentException("OrderID không tồn tại."); // Ném lỗi để Controller bắt
-            }
+            
             if (!string.IsNullOrEmpty(design.DesignerID) && !await EmployeeExistsAsync(design.DesignerID))
             {
                 _logger.LogWarning("DesignerID không tồn tại khi tạo thiết kế: {DesignerID}", design.DesignerID);
@@ -74,7 +65,6 @@ namespace DecalXeAPI.Services.Implementations
             await _context.SaveChangesAsync();
 
             // Tải lại thông tin liên quan để AutoMapper có thể ánh xạ đầy đủ
-            await _context.Entry(design).Reference(d => d.Order).LoadAsync();
             await _context.Entry(design).Reference(d => d.Designer).LoadAsync();
 
             var designDto = _mapper.Map<DesignDto>(design);
@@ -99,11 +89,7 @@ namespace DecalXeAPI.Services.Implementations
             }
 
             // Kiểm tra FKs
-            if (!string.IsNullOrEmpty(design.OrderID) && !await OrderExistsAsync(design.OrderID))
-            {
-                _logger.LogWarning("OrderID không tồn tại khi cập nhật thiết kế: {OrderID}", design.OrderID);
-                throw new ArgumentException("OrderID không tồn tại.");
-            }
+            
             if (!string.IsNullOrEmpty(design.DesignerID) && !await EmployeeExistsAsync(design.DesignerID))
             {
                 _logger.LogWarning("DesignerID không tồn tại khi cập nhật thiết kế: {DesignerID}", design.DesignerID);

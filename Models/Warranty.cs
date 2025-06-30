@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System;
+using System.Text.Json.Serialization;
 
 namespace DecalXeAPI.Models
 {
@@ -9,29 +10,38 @@ namespace DecalXeAPI.Models
         [Key]
         public string WarrantyID { get; set; } = Guid.NewGuid().ToString(); // PK
 
-        // Khóa ngoại (Foreign Key): Bảo hành này cho Order nào
-        public string OrderID { get; set; } = string.Empty; // FK_OrderID
-        // Navigation Property
-        public Order? Order { get; set; }
+        // --- CỘT ĐÃ BỊ XÓA THEO REVIEW2 ---
+        // [ForeignKey("Order")] // <-- ĐÃ XÓA DÒNG NÀY (FK)
+        // public string OrderID { get; set; } = string.Empty; // <-- ĐÃ XÓA DÒNG NÀY
+        // [JsonIgnore]
+        // public Order? Order { get; set; } // <-- ĐÃ XÓA DÒNG NÀY
+
+        // --- CỘT MỚI TỪ YÊU CẦU REVIEW2 ---
+        [Required] // Bảo hành phải liên kết với một xe cụ thể
+        [ForeignKey("CustomerVehicle")]
+        public string VehicleID { get; set; } = string.Empty; // <-- MỚI: FK tới xe của khách hàng (theo số khung)
+        [JsonIgnore]
+        public CustomerVehicle? CustomerVehicle { get; set; } // Navigation Property
+
 
         [Required]
-        public DateTime WarrantyStartDate { get; set; } = DateTime.UtcNow; // Ngày bắt đầu bảo hành
+        public DateTime WarrantyStartDate { get; set; } = DateTime.UtcNow;
 
         [Required]
-        public DateTime WarrantyEndDate { get; set; } = DateTime.UtcNow.AddYears(1); // Ngày kết thúc bảo hành (mặc định 1 năm)
+        public DateTime WarrantyEndDate { get; set; }
 
         [Required]
         [MaxLength(100)]
-        public string WarrantyType { get; set; } = string.Empty; // Loại bảo hành (ví dụ: "Bảo hành bong tróc", "Bảo hành màu sắc")
+        public string WarrantyType { get; set; } = string.Empty;
 
         [Required]
         [MaxLength(50)]
-        public string WarrantyStatus { get; set; } = "Active"; // Trạng thái bảo hành (Active, Expired, Void)
+        public string WarrantyStatus { get; set; } = string.Empty; // Ví dụ: "Active", "Expired", "Voided"
 
         [MaxLength(500)]
         public string? Description { get; set; }
 
         [MaxLength(500)]
-        public string? Notes { get; set; } // Ghi chú thêm
+        public string? Notes { get; set; }
     }
 }
