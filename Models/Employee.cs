@@ -36,8 +36,6 @@ namespace DecalXeAPI.Models
 
         // --- NAVIGATION PROPERTIES HIỆN CÓ (Giữ nguyên) ---
         [JsonIgnore] // Để tránh lỗi vòng lặp JSON
-        public ICollection<TechnicianDailySchedule>? TechnicianDailySchedules { get; set; }
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
         public ICollection<Design>? Designs { get; set; } // Nếu Designer là Employee
         [JsonIgnore] // Để tránh lỗi vòng lặp JSON
         public ICollection<CustomServiceRequest>? SalesRequests { get; set; } // Nếu SalesEmployee là Employee
@@ -45,5 +43,13 @@ namespace DecalXeAPI.Models
         // --- NAVIGATION PROPERTY MỚI TỪ YÊU CẦU REVIEW ---
         [JsonIgnore] // Để tránh lỗi vòng lặp JSON
         public ICollection<OrderStageHistory>? OrderStageHistories { get; set; } // Lịch sử chuyển giai đoạn Order mà nhân viên này tham gia
+
+
+        // Thêm các dòng này vào cuối lớp Employee trong file Employee.cs
+        public virtual AdminDetail? AdminDetail { get; set; }
+        public virtual ManagerDetail? ManagerDetail { get; set; }
+        public virtual SalesPersonDetail? SalesPersonDetail { get; set; }
+        public virtual DesignerDetail? DesignerDetail { get; set; }
+        public virtual TechnicianDetail? TechnicianDetail { get; set; }
     }
 }

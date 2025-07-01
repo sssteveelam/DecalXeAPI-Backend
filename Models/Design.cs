@@ -1,3 +1,4 @@
+// DecalXeAPI/Models/Design.cs
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -6,34 +7,36 @@ namespace DecalXeAPI.Models
     public class Design
     {
         [Key]
-        public string DesignID { get; set; } = Guid.NewGuid().ToString(); // PK
-
-        // Khóa ngoại (Foreign Key): Bản thiết kế này thuộc về Order nào
-        public string OrderID { get; set; } = string.Empty; // FK_OrderID
-        // Navigation Property: Một Design có một Order
-        public Order? Order { get; set; }
+        public string DesignID { get; set; } = Guid.NewGuid().ToString();
 
         [Required]
         [MaxLength(500)]
-        public string DesignURL { get; set; } = string.Empty; // URL của file thiết kế
+        public string DesignURL { get; set; } = string.Empty;
 
-        // Khóa ngoại (Foreign Key): Nhân viên nào đã thiết kế bản này
-        public string? DesignerID { get; set; } // FK_DesignerID
-        // Navigation Property: Một Design có một Designer (Employee)
+        [ForeignKey("Employee")]
+        public string? DesignerID { get; set; }
         public Employee? Designer { get; set; }
 
         [Required]
         [MaxLength(50)]
-        public string Version { get; set; } = "1.0"; // Phiên bản thiết kế
+        public string Version { get; set; } = "1.0";
 
         [Required]
         [MaxLength(50)]
-        public string ApprovalStatus { get; set; } = "Pending"; // Trạng thái phê duyệt (ví dụ: "Pending", "Approved", "Rejected")
+        public string ApprovalStatus { get; set; } = "Pending";
 
-        public bool IsAIGenerated { get; set; } = false; // Có phải thiết kế được tạo bởi AI không
+        public bool IsAIGenerated { get; set; } = false;
+
         [MaxLength(100)]
-        public string? AIModelUsed { get; set; } // Tên model AI nếu có
-        [MaxLength(1000)]
-        public string? AIPrompt { get; set; } // Prompt đã dùng cho AI nếu có
+        public string? AIModelUsed { get; set; }
+
+        // --- THAY ĐỔI THEO YÊU CẦU ---
+        [Required]
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal DesignPrice { get; set; } // Thêm giá tiền thiết kế
+
+        // OrderID và AIPrompt đã được xóa
+        // Mở file Models/Design.cs và thêm dòng này vào
+        public DesignWorkOrder? DesignWorkOrder { get; set; }
     }
 }

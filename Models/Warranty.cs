@@ -1,3 +1,4 @@
+// DecalXeAPI/Models/Warranty.cs
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System;
@@ -7,31 +8,37 @@ namespace DecalXeAPI.Models
     public class Warranty
     {
         [Key]
-        public string WarrantyID { get; set; } = Guid.NewGuid().ToString(); // PK
+        public string WarrantyID { get; set; } = Guid.NewGuid().ToString();
 
-        // Khóa ngoại (Foreign Key): Bảo hành này cho Order nào
-        public string OrderID { get; set; } = string.Empty; // FK_OrderID
-        // Navigation Property
-        public Order? Order { get; set; }
+        // --- THAY ĐỔI LỚN Ở ĐÂY ---
+        // Khóa ngoại mới: Bảo hành này cho xe nào
+        [ForeignKey("CustomerVehicle")]
+        public string VehicleID { get; set; } = string.Empty; // Thêm mới
+        public CustomerVehicle? CustomerVehicle { get; set; } // Thêm mới
+
+        // Khóa ngoại cũ đã bị xóa
+        // public string OrderID { get; set; } = string.Empty; 
+        // public Order? Order { get; set; }
+        // ---------------------------
 
         [Required]
-        public DateTime WarrantyStartDate { get; set; } = DateTime.UtcNow; // Ngày bắt đầu bảo hành
+        public DateTime WarrantyStartDate { get; set; } = DateTime.UtcNow;
 
         [Required]
-        public DateTime WarrantyEndDate { get; set; } = DateTime.UtcNow.AddYears(1); // Ngày kết thúc bảo hành (mặc định 1 năm)
+        public DateTime WarrantyEndDate { get; set; } = DateTime.UtcNow.AddYears(1);
 
         [Required]
         [MaxLength(100)]
-        public string WarrantyType { get; set; } = string.Empty; // Loại bảo hành (ví dụ: "Bảo hành bong tróc", "Bảo hành màu sắc")
+        public string WarrantyType { get; set; } = string.Empty;
 
         [Required]
         [MaxLength(50)]
-        public string WarrantyStatus { get; set; } = "Active"; // Trạng thái bảo hành (Active, Expired, Void)
+        public string WarrantyStatus { get; set; } = "Active";
 
         [MaxLength(500)]
         public string? Description { get; set; }
 
         [MaxLength(500)]
-        public string? Notes { get; set; } // Ghi chú thêm
+        public string? Notes { get; set; }
     }
 }

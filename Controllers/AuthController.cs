@@ -130,6 +130,7 @@ namespace DecalXeAPI.Controllers
             }
             catch (Exception ex)
             {
+                // Ghi log lỗi ở đây nếu cần
                 return StatusCode(500, "Đã xảy ra lỗi nội bộ máy chủ khi đặt lại mật khẩu.");
             }
         }

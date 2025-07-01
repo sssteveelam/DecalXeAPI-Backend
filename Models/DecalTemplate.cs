@@ -22,13 +22,10 @@ namespace DecalXeAPI.Models
         public string DecalTypeID { get; set; } = string.Empty; // FK_DecalTypeID
         public DecalType? DecalType { get; set; }
 
-        // --- NAVIGATION PROPERTIES HIỆN CÓ (Giữ nguyên) ---
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
-        public ICollection<ServiceDecalTemplate>? ServiceDecalTemplates { get; set; }
-
         // --- NAVIGATION PROPERTY MỚI TỪ YÊU CẦU REVIEW ---
-        // Mối quan hệ N-N với CarModel thông qua bảng trung gian CarModelDecalTemplate
+        // Mối quan hệ N-N với VehicleModel thông qua bảng trung gian VehicleModelDecalTemplate
         [JsonIgnore] // Để tránh lỗi vòng lặp JSON
-        public ICollection<CarModelDecalTemplate>? CarModelDecalTemplates { get; set; }
+        // DÒNG CẦN SỬA LÀ DÒNG DƯỚI ĐÂY:
+        public ICollection<VehicleModelDecalTemplate>? VehicleModelDecalTemplates { get; set; }
     }
 }

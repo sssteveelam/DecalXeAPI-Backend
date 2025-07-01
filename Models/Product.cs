@@ -26,11 +26,10 @@ namespace DecalXeAPI.Models
 
         public int StockQuantity { get; set; } // Số lượng tồn kho
 
-        [MaxLength(100)]
-        public string? Category { get; set; } // Ví dụ: "Decal", "Hóa chất", "Dụng cụ"
-
         // Navigation Property: Một Product có thể được dùng trong nhiều ServiceProduct.
-        [JsonIgnore]
-        public ICollection<ServiceProduct>? ServiceProducts { get; set; }
+        // Khóa ngoại trỏ đến Category
+        [ForeignKey("Category")]
+        public string CategoryID { get; set; } = string.Empty;
+        public Category? Category { get; set; }
     }
 }

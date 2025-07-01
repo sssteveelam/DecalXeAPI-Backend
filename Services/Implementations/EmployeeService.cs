@@ -146,44 +146,7 @@ namespace DecalXeAPI.Services.Implementations
             _logger.LogInformation("Đã xóa nhân viên với ID: {EmployeeID}", id);
             return true;
         }
-
-        // Lấy thống kê hiệu suất của nhân viên
-        public async Task<IEnumerable<EmployeePerformanceDto>> GetEmployeePerformanceStatisticsAsync()
-        {
-            _logger.LogInformation("Yêu cầu lấy thống kê hiệu suất nhân viên.");
-            var performanceData = await _context.Employees
-                .Include(e => e.TechnicianDailySchedules!)
-                    .ThenInclude(tds => tds.ScheduledWorkUnits!)
-                .Where(e => e.TechnicianDailySchedules != null && e.TechnicianDailySchedules.Any())
-                .ToListAsync();
-
-            var performanceDtos = new List<EmployeePerformanceDto>();
-
-            foreach (var employee in performanceData)
-            {
-                int completedUnits = 0;
-                int totalAssignedUnits = 0;
-
-                foreach (var dailySchedule in employee.TechnicianDailySchedules!) // ! để bỏ qua warning
-                {
-                    completedUnits += dailySchedule.ScheduledWorkUnits?.Count(swu => swu.Status == "Completed") ?? 0;
-                    totalAssignedUnits += dailySchedule.ScheduledWorkUnits?.Count(swu => !string.IsNullOrEmpty(swu.OrderID)) ?? 0;
-                }
-
-                decimal completionRate = totalAssignedUnits > 0 ? (decimal)completedUnits / totalAssignedUnits * 100 : 0;
-
-                performanceDtos.Add(new EmployeePerformanceDto
-                {
-                    EmployeeID = employee.EmployeeID,
-                    EmployeeFullName = $"{employee.FirstName} {employee.LastName}",
-                    CompletedWorkUnits = completedUnits,
-                    TotalAssignedWorkUnits = totalAssignedUnits,
-                    CompletionRate = Math.Round(completionRate, 2)
-                });
-            }
-            _logger.LogInformation("Đã trả về {Count} bản ghi thống kê hiệu suất nhân viên.", performanceDtos.Count);
-            return performanceDtos.OrderByDescending(p => p.CompletedWorkUnits);
-        }
+        
 
         // --- HÀM HỖ TRỢ: KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (PUBLIC CHO INTERFACE) ---
         public async Task<bool> EmployeeExistsAsync(string id)

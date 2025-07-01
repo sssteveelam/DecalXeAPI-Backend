@@ -5,7 +5,7 @@ using DecalXeAPI.Models;
 using DecalXeAPI.Services.Interfaces;
 using AutoMapper;
 using Microsoft.Extensions.Logging;
-using System.Collections.Generic;
+using System.Collections.Generic; 
 using System.Linq;
 using System.Threading.Tasks;
 using System;
@@ -188,7 +188,6 @@ namespace DecalXeAPI.Services.Implementations
         }
 
         // --- MỚI: PHƯƠNG THỨC CHO TÍNH NĂNG QUÊN MẬT KHẨU (ĐƠN GIẢN: RESET BẰNG USERNAME) ---
-        // Người dùng chỉ cần nhập đúng username là cho đổi pass mới
         public async Task<(bool Success, string? ErrorMessage)> ResetPasswordByUsernameAsync(ResetPasswordByUsernameDto request)
         {
             _logger.LogInformation("Yêu cầu đặt lại mật khẩu bằng Username: {Username}", request.Username);

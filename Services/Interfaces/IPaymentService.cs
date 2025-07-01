@@ -16,6 +16,5 @@ namespace DecalXeAPI.Services.Interfaces
         // Các hàm kiểm tra tồn tại (Exists) cần thiết cho Service này
         Task<bool> PaymentExistsAsync(string id);
         Task<bool> OrderExistsAsync(string id); // Cần để kiểm tra FK
-        Task<bool> PromotionExistsAsync(string id); // Cần để kiểm tra FK
     }
 }

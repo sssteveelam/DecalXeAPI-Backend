@@ -58,8 +58,6 @@ namespace DecalXeAPI.Models
         [JsonIgnore] // Để tránh lỗi vòng lặp JSON
         public ICollection<Payment>? Payments { get; set; }
         [JsonIgnore] // Để tránh lỗi vòng lặp JSON
-        public ICollection<ScheduledWorkUnit>? ScheduledWorkUnits { get; set; }
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
         public ICollection<Design>? Designs { get; set; }
         [JsonIgnore] // Để tránh lỗi vòng lặp JSON
         public ICollection<Feedback>? Feedbacks { get; set; }
@@ -67,7 +65,5 @@ namespace DecalXeAPI.Models
         public ICollection<Warranty>? Warranties { get; set; }
         [JsonIgnore] // Để tránh lỗi vòng lặp JSON
         public ICollection<OrderStageHistory>? OrderStageHistories { get; set; } // Lịch sử các giai đoạn của Order
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
-        public ICollection<OrderCompletionImage>? OrderCompletionImages { get; set; } // Ảnh sau khi hoàn tất
     }
 }

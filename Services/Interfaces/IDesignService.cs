@@ -1,3 +1,4 @@
+// DecalXeAPI/Services/Interfaces/IDesignService.cs
 using DecalXeAPI.DTOs;
 using DecalXeAPI.Models;
 using System.Collections.Generic;
@@ -15,7 +16,7 @@ namespace DecalXeAPI.Services.Interfaces
 
         // Các hàm kiểm tra tồn tại (Exists) cần thiết cho Service này
         Task<bool> DesignExistsAsync(string id);
-        Task<bool> OrderExistsAsync(string id); // Cần để kiểm tra FK
+        // Task<bool> OrderExistsAsync(string id); // <-- XÓA DÒNG NÀY ĐI
         Task<bool> EmployeeExistsAsync(string id); // Cần để kiểm tra FK (DesignerID)
     }
 }

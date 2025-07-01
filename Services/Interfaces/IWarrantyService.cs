@@ -1,3 +1,4 @@
+// DecalXeAPI/Services/Interfaces/IWarrantyService.cs
 using DecalXeAPI.DTOs;
 using DecalXeAPI.Models;
 using System.Collections.Generic;
@@ -15,6 +16,7 @@ namespace DecalXeAPI.Services.Interfaces
 
         // Các hàm kiểm tra tồn tại (Exists) cần thiết cho Service này
         Task<bool> WarrantyExistsAsync(string id);
-        Task<bool> OrderExistsAsync(string id); // Cần để kiểm tra FK
+        // Bỏ OrderExistsAsync, thay bằng CustomerVehicleExistsAsync
+        Task<bool> CustomerVehicleExistsAsync(string vehicleId); 
     }
 }

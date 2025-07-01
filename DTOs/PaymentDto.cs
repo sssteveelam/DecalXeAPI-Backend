@@ -1,3 +1,4 @@
+// DecalXeAPI/DTOs/PaymentDto.cs
 using System;
 
 namespace DecalXeAPI.DTOs
@@ -6,9 +7,13 @@ namespace DecalXeAPI.DTOs
     {
         public string PaymentID { get; set; } = string.Empty;
         public string OrderID { get; set; } = string.Empty;
-        public string OrderStatus { get; set; } = string.Empty; // Trạng thái đơn hàng liên quan
-        public string? PromotionID { get; set; }
-        public string? PromotionName { get; set; } // Tên khuyến mãi
+        public string OrderStatus { get; set; } = string.Empty;
+
+        // --- CÁC THUỘC TÍNH ĐÃ BỊ XÓA ---
+        // public string? PromotionID { get; set; }
+        // public string? PromotionName { get; set; }
+        // --------------------------------
+
         public decimal PaymentAmount { get; set; }
         public DateTime PaymentDate { get; set; }
         public string PaymentMethod { get; set; } = string.Empty;
