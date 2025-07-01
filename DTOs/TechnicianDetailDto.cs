@@ -1,8 +1,9 @@
+// DecalXeAPI/DTOs/TechnicianDetailDto.cs
 namespace DecalXeAPI.DTOs
 {
     public class TechnicianDetailDto
     {
-        public int? YearsOfExperience { get; set; }
-        public string? Certifications { get; set; }
+        public string? SpecialtyArea { get; set; }
+        public string Status { get; set; } = string.Empty;
     }
 }

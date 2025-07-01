@@ -1,20 +1,22 @@
-// DecalXeAPI/DTOs/EmployeeDto.cs
+// DecalXeAPI/DTOs/EmployeeCreateUpdateDto.cs
+using System.ComponentModel.DataAnnotations;
+
 namespace DecalXeAPI.DTOs
 {
-    public class EmployeeDto
+    public class EmployeeCreateUpdateDto
     {
-        public string EmployeeID { get; set; } = string.Empty;
+        // Thông tin cơ bản
+        [Required]
         public string FirstName { get; set; } = string.Empty;
+        [Required]
         public string LastName { get; set; } = string.Empty;
         public string? PhoneNumber { get; set; }
         public string? Email { get; set; }
+        [Required]
         public string StoreID { get; set; } = string.Empty;
-        public string StoreName { get; set; } = string.Empty;
-        public string? AccountID { get; set; }
-        public string? AccountUsername { get; set; }
-        public string? AccountRoleName { get; set; }
+        public string? AccountID { get; set; } // Có thể có hoặc không
 
-        // --- THÊM CÁC THUỘC TÍNH CHI TIẾT VAI TRÒ ---
+        // Thông tin chi tiết cho từng vai trò (chỉ điền vào 1 trong các mục này)
         public AdminDetailDto? AdminDetail { get; set; }
         public ManagerDetailDto? ManagerDetail { get; set; }
         public SalesPersonDetailDto? SalesPersonDetail { get; set; }

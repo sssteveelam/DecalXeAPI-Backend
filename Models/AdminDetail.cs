@@ -7,12 +7,15 @@ namespace DecalXeAPI.Models
     public class AdminDetail
     {
         [Key, ForeignKey("Employee")]
-        public string EmployeeID { get; set; } // Vừa là Khóa Chính (PK), vừa là Khóa Ngoại (FK)
-        public virtual Employee? Employee { get; set; } // Navigation property để trỏ về Employee
+        public string EmployeeID { get; set; }
+        public virtual Employee? Employee { get; set; }
 
-        // Thêm các thuộc tính riêng cho Admin ở đây nếu có trong tương lai
-        // Ví dụ:
+        // --- CẬP NHẬT THEO YÊU CẦU ---
+        [Required]
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal BaseSalary { get; set; } // Lương cơ bản
+
         [MaxLength(100)]
-        public string? AccessLevel { get; set; } // Ví dụ: "Full Control", "Limited"
+        public string? ManagementLevel { get; set; } // Cấp bậc quản lý
     }
 }

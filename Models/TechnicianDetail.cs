@@ -10,9 +10,12 @@ namespace DecalXeAPI.Models
         public string EmployeeID { get; set; }
         public virtual Employee? Employee { get; set; }
 
-        // Các thuộc tính riêng cho Technician
-        public int? YearsOfExperience { get; set; } // Số năm kinh nghiệm
+        // --- CẬP NHẬT THEO YÊU CẦU ---
         [MaxLength(200)]
-        public string? Certifications { get; set; } // Các chứng chỉ
+        public string? SpecialtyArea { get; set; } // Lĩnh vực chuyên môn
+
+        [Required]
+        [MaxLength(50)]
+        public string Status { get; set; } = "Available"; // Trạng thái: Available, Busy, On Leave
     }
 }

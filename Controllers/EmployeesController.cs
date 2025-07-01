@@ -1,14 +1,14 @@
+// DecalXeAPI/Controllers/EmployeesController.cs
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore; // Vẫn cần DbContext cho các hàm Exists cơ bản
-using DecalXeAPI.Data; // Vẫn cần ApplicationDbContext cho các hàm Exists
+using Microsoft.EntityFrameworkCore;
 using DecalXeAPI.Models;
 using DecalXeAPI.DTOs;
-using DecalXeAPI.Services.Interfaces; // <-- THÊM DÒNG NÀY (Để sử dụng IEmployeeService)
+using DecalXeAPI.Services.Interfaces;
 using AutoMapper;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
-using System; // Để sử dụng ArgumentException
+using System;
 
 namespace DecalXeAPI.Controllers
 {
@@ -17,22 +17,19 @@ namespace DecalXeAPI.Controllers
     [Authorize]
     public class EmployeesController : ControllerBase
     {
-        private readonly ApplicationDbContext _context; // Vẫn giữ để dùng các hàm Exists cơ bản
-        private readonly IEmployeeService _employeeService; // <-- KHAI BÁO BIẾN CHO SERVICE
-        private readonly IMapper _mapper;
+        // Bỏ _context và _mapper vì Controller giờ chỉ làm việc với Service
+        private readonly IEmployeeService _employeeService;
         private readonly ILogger<EmployeesController> _logger;
 
-        public EmployeesController(ApplicationDbContext context, IEmployeeService employeeService, IMapper mapper, ILogger<EmployeesController> logger) // <-- TIÊM IEmployeeService
+        public EmployeesController(IEmployeeService employeeService, ILogger<EmployeesController> logger)
         {
-            _context = context;
             _employeeService = employeeService;
-            _mapper = mapper;
             _logger = logger;
         }
 
-        // API: GET api/Employees
+        // GET: api/Employees
         [HttpGet]
-        [Authorize(Roles = "Admin,Manager,Sales,Technician,Customer")] // Nới lỏng quyền cho GET
+        [Authorize(Roles = "Admin,Manager,Sales,Technician,Customer")]
         public async Task<ActionResult<IEnumerable<EmployeeDto>>> GetEmployees()
         {
             _logger.LogInformation("Yêu cầu lấy danh sách nhân viên.");
@@ -40,9 +37,9 @@ namespace DecalXeAPI.Controllers
             return Ok(employees);
         }
 
-        // API: GET api/Employees/{id}
+        // GET: api/Employees/{id}
         [HttpGet("{id}")]
-        [Authorize(Roles = "Admin,Manager,Sales,Technician,Customer")] // Nới lỏng quyền cho GET by ID
+        [Authorize(Roles = "Admin,Manager,Sales,Technician,Customer")]
         public async Task<ActionResult<EmployeeDto>> GetEmployee(string id)
         {
             _logger.LogInformation("Yêu cầu lấy nhân viên với ID: {EmployeeID}", id);
@@ -53,89 +50,57 @@ namespace DecalXeAPI.Controllers
                 _logger.LogWarning("Không tìm thấy nhân viên với ID: {EmployeeID}", id);
                 return NotFound();
             }
-
             return Ok(employeeDto);
         }
 
-        // API: POST api/Employees
+        // API: POST api/Employees (ĐÃ SỬA)
         [HttpPost]
         [Authorize(Roles = "Admin,Manager")]
-        public async Task<ActionResult<EmployeeDto>> PostEmployee(Employee employee) // Vẫn nhận Employee Model
+        public async Task<ActionResult<EmployeeDto>> PostEmployee(EmployeeCreateUpdateDto employeeDto) // Nhận vào DTO mới
         {
-            _logger.LogInformation("Yêu cầu tạo nhân viên mới: {FirstName} {LastName}", employee.FirstName, employee.LastName);
-
-            // --- KIỂM TRA FKs CHÍNH TRƯỚC KHI GỬI VÀO SERVICE ---
-            if (!string.IsNullOrEmpty(employee.StoreID) && !StoreExists(employee.StoreID))
-            {
-                return BadRequest("StoreID không tồn tại.");
-            }
-            if (!string.IsNullOrEmpty(employee.AccountID) && !AccountExists(employee.AccountID))
-            {
-                return BadRequest("AccountID không tồn tại.");
-            }
-
+            _logger.LogInformation("Yêu cầu tạo nhân viên mới: {FirstName} {LastName}", employeeDto.FirstName, employeeDto.LastName);
+            
             try
             {
-                var createdEmployeeDto = await _employeeService.CreateEmployeeAsync(employee);
+                // Truyền thẳng DTO vào service, không cần kiểm tra gì ở đây nữa
+                var createdEmployeeDto = await _employeeService.CreateEmployeeAsync(employeeDto);
                 _logger.LogInformation("Đã tạo nhân viên mới với ID: {EmployeeID}", createdEmployeeDto.EmployeeID);
                 return CreatedAtAction(nameof(GetEmployee), new { id = createdEmployeeDto.EmployeeID }, createdEmployeeDto);
             }
-            catch (ArgumentException ex) // Bắt lỗi từ Service nếu có (ví dụ: username trùng lặp)
+            catch (ArgumentException ex)
             {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi tạo nhân viên: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi không mong muốn khi tạo nhân viên.");
+                return StatusCode(500, "Lỗi hệ thống khi tạo nhân viên.");
             }
         }
 
-        // API: PUT api/Employees/{id}
+        // API: PUT api/Employees/{id} (ĐÃ SỬA)
         [HttpPut("{id}")]
         [Authorize(Roles = "Admin,Manager")]
-        public async Task<IActionResult> PutEmployee(string id, Employee employee)
+        public async Task<IActionResult> PutEmployee(string id, EmployeeCreateUpdateDto employeeDto) // Nhận vào DTO mới
         {
             _logger.LogInformation("Yêu cầu cập nhật nhân viên với ID: {EmployeeID}", id);
-            if (id != employee.EmployeeID)
-            {
-                return BadRequest();
-            }
-
-            // Kiểm tra FKs chính
-            if (!string.IsNullOrEmpty(employee.StoreID) && !StoreExists(employee.StoreID))
-            {
-                return BadRequest("StoreID không tồn tại.");
-            }
-            if (!string.IsNullOrEmpty(employee.AccountID) && !AccountExists(employee.AccountID))
-            {
-                return BadRequest("AccountID không tồn tại.");
-            }
-
+            
             try
             {
-                var success = await _employeeService.UpdateEmployeeAsync(id, employee);
-
-                if (!success)
+                var updatedEmployee = await _employeeService.UpdateEmployeeAsync(id, employeeDto);
+                if (updatedEmployee == null)
                 {
-                    _logger.LogWarning("Không tìm thấy nhân viên để cập nhật với ID: {EmployeeID}", id);
                     return NotFound();
                 }
-
-                _logger.LogInformation("Đã cập nhật nhân viên với ID: {EmployeeID}", id);
                 return NoContent();
+            }
+            catch(NotImplementedException)
+            {
+                return StatusCode(501, "Chức năng cập nhật nhân viên chưa được hoàn thiện.");
             }
             catch (ArgumentException ex)
             {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật nhân viên: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!EmployeeExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
             }
         }
 
@@ -149,17 +114,11 @@ namespace DecalXeAPI.Controllers
 
             if (!success)
             {
-                _logger.LogWarning("Không tìm thấy nhân viên để xóa với ID: {EmployeeID}", id);
                 return NotFound();
             }
-
             return NoContent();
         }
 
-
-        // --- HÀM HỖ TRỢ (PRIVATE): KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (Vẫn giữ ở Controller để kiểm tra FKs) ---
-        private bool EmployeeExists(string id) { return _context.Employees.Any(e => e.EmployeeID == id); }
-        private bool StoreExists(string id) { return _context.Stores.Any(e => e.StoreID == id); }
-        private bool AccountExists(string id) { return _context.Accounts.Any(e => e.AccountID == id); }
+        // Các hàm hỗ trợ StoreExists, AccountExists đã được xóa vì không cần thiết nữa
     }
 }
