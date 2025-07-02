@@ -59,7 +59,7 @@ namespace DecalXeAPI.Controllers
 
         // API: POST api/Customers
         [HttpPost]
-        [Authorize(Roles = "Customer,Sales")] // Khách hàng hoặc Sales có thể tạo
+        [Authorize(Roles = "Admin, Manager, Customer,Sales")] // Khách hàng hoặc Sales có thể tạo
         public async Task<ActionResult<CustomerDto>> PostCustomer(Customer customer) // Vẫn nhận Customer Model
         {
             _logger.LogInformation("Yêu cầu tạo khách hàng mới: {FirstName} {LastName}", customer.FirstName, customer.LastName);
