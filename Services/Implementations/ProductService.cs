@@ -25,10 +25,12 @@ namespace DecalXeAPI.Services.Implementations
             _logger = logger;
         }
 
+        // DecalXeAPI/Services/Implementations/ProductService.cs
         public async Task<IEnumerable<ProductDto>> GetProductsAsync()
         {
             _logger.LogInformation("Lấy danh sách sản phẩm.");
-            var products = await _context.Products.ToListAsync();
+            // Thêm .Include(p => p.Category) vào đây
+            var products = await _context.Products.Include(p => p.Category).ToListAsync();
             var productDtos = _mapper.Map<List<ProductDto>>(products);
             return productDtos;
         }
