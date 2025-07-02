@@ -10,12 +10,8 @@ namespace DecalXeAPI.Models
         public string EmployeeID { get; set; }
         public virtual Employee? Employee { get; set; }
 
-        // --- CẬP NHẬT THEO YÊU CẦU ---
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal? SalesTarget { get; set; } // Chỉ tiêu doanh số
-
-        [Required]
-        [MaxLength(50)]
-        public string Status { get; set; } = "Active"; // Trạng thái
+        // Các thuộc tính riêng cho Sales Person
+        [Column(TypeName = "decimal(5,2)")]
+        public decimal? CommissionRate { get; set; } // Tỷ lệ hoa hồng
     }
 }

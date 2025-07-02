@@ -1,4 +1,3 @@
-// DecalXeAPI/Services/Implementations/EmployeeService.cs
 using Microsoft.EntityFrameworkCore;
 using DecalXeAPI.Data;
 using DecalXeAPI.DTOs;
@@ -13,7 +12,7 @@ using System;
 
 namespace DecalXeAPI.Services.Implementations
 {
-    public class EmployeeService : IEmployeeService
+    public class EmployeeService : IEmployeeService // <-- Kế thừa từ IEmployeeService
     {
         private readonly ApplicationDbContext _context;
         private readonly IMapper _mapper;
@@ -30,113 +29,139 @@ namespace DecalXeAPI.Services.Implementations
         {
             _logger.LogInformation("Lấy danh sách nhân viên.");
             var employees = await _context.Employees
-                .Include(e => e.Account).ThenInclude(a => a.Role)
-                .Include(e => e.Store)
-                .Include(e => e.AdminDetail)
-                .Include(e => e.ManagerDetail)
-                .Include(e => e.SalesPersonDetail)
-                .Include(e => e.DesignerDetail)
-                .Include(e => e.TechnicianDetail)
-                .ToListAsync();
-            return _mapper.Map<List<EmployeeDto>>(employees);
+                                            .Include(e => e.Account)
+                                                .ThenInclude(a => a.Role)
+                                            .Include(e => e.Store)
+                                            .ToListAsync();
+            var employeeDtos = _mapper.Map<List<EmployeeDto>>(employees);
+            return employeeDtos;
         }
 
         public async Task<EmployeeDto?> GetEmployeeByIdAsync(string id)
         {
-             var employee = await _context.Employees
-                .Include(e => e.Account).ThenInclude(a => a.Role)
-                .Include(e => e.Store)
-                .Include(e => e.AdminDetail)
-                .Include(e => e.ManagerDetail)
-                .Include(e => e.SalesPersonDetail)
-                .Include(e => e.DesignerDetail)
-                .Include(e => e.TechnicianDetail)
-                .FirstOrDefaultAsync(e => e.EmployeeID == id);
-            return _mapper.Map<EmployeeDto>(employee);
+            _logger.LogInformation("Yêu cầu lấy nhân viên với ID: {EmployeeID}", id);
+            var employee = await _context.Employees
+                                            .Include(e => e.Account)
+                                                .ThenInclude(a => a.Role)
+                                            .Include(e => e.Store)
+                                            .FirstOrDefaultAsync(e => e.EmployeeID == id);
+
+            if (employee == null)
+            {
+                _logger.LogWarning("Không tìm thấy nhân viên với ID: {EmployeeID}", id);
+                return null;
+            }
+
+            var employeeDto = _mapper.Map<EmployeeDto>(employee);
+            _logger.LogInformation("Đã trả về nhân viên với ID: {EmployeeID}", id);
+            return employeeDto;
         }
 
-        public async Task<EmployeeDto> CreateEmployeeAsync(EmployeeCreateUpdateDto employeeDto)
+        public async Task<EmployeeDto> CreateEmployeeAsync(Employee employee)
         {
-            // Bắt đầu một transaction để đảm bảo tất cả hành động hoặc thành công, hoặc thất bại
-            using var transaction = await _context.Database.BeginTransactionAsync();
+            _logger.LogInformation("Yêu cầu tạo nhân viên mới: {FirstName} {LastName}", employee.FirstName, employee.LastName);
+
+            // Kiểm tra FKs
+            if (!string.IsNullOrEmpty(employee.StoreID) && !await StoreExistsAsync(employee.StoreID))
+            {
+                _logger.LogWarning("StoreID không tồn tại khi tạo nhân viên: {StoreID}", employee.StoreID);
+                throw new ArgumentException("StoreID không tồn tại.");
+            }
+            if (!string.IsNullOrEmpty(employee.AccountID) && !await AccountExistsAsync(employee.AccountID))
+            {
+                _logger.LogWarning("AccountID không tồn tại khi tạo nhân viên: {AccountID}", employee.AccountID);
+                throw new ArgumentException("AccountID không tồn tại.");
+            }
+
+            _context.Employees.Add(employee);
+            await _context.SaveChangesAsync();
+
+            await _context.Entry(employee).Reference(e => e.Account).LoadAsync();
+            if (employee.Account != null)
+            {
+                await _context.Entry(employee.Account).Reference(a => a.Role).LoadAsync();
+            }
+            await _context.Entry(employee).Reference(e => e.Store).LoadAsync();
+
+            var employeeDto = _mapper.Map<EmployeeDto>(employee);
+            _logger.LogInformation("Đã tạo nhân viên mới với ID: {EmployeeID}", employee.EmployeeID);
+            return employeeDto;
+        }
+
+        public async Task<bool> UpdateEmployeeAsync(string id, Employee employee)
+        {
+            _logger.LogInformation("Yêu cầu cập nhật nhân viên với ID: {EmployeeID}", id);
+
+            if (id != employee.EmployeeID)
+            {
+                _logger.LogWarning("ID trong tham số ({Id}) không khớp với EmployeeID trong body ({EmployeeIDBody})", id, employee.EmployeeID);
+                return false;
+            }
+
+            if (!await EmployeeExistsAsync(id))
+            {
+                _logger.LogWarning("Không tìm thấy nhân viên để cập nhật với ID: {EmployeeID}", id);
+                return false;
+            }
+
+            // Kiểm tra FKs
+            if (!string.IsNullOrEmpty(employee.StoreID) && !await StoreExistsAsync(employee.StoreID))
+            {
+                _logger.LogWarning("StoreID không tồn tại khi cập nhật nhân viên: {StoreID}", employee.StoreID);
+                throw new ArgumentException("StoreID không tồn tại.");
+            }
+            if (!string.IsNullOrEmpty(employee.AccountID) && !await AccountExistsAsync(employee.AccountID))
+            {
+                _logger.LogWarning("AccountID không tồn tại khi cập nhật nhân viên: {AccountID}", employee.AccountID);
+                throw new ArgumentException("AccountID không tồn tại.");
+            }
+
+            _context.Entry(employee).State = EntityState.Modified;
+
             try
             {
-                // 1. Tạo đối tượng Employee cơ bản
-                var employee = _mapper.Map<Employee>(employeeDto);
-                employee.EmployeeID = Guid.NewGuid().ToString(); // Tạo ID mới
-                _context.Employees.Add(employee);
-                await _context.SaveChangesAsync(); // Lưu để lấy EmployeeID
-
-                // 2. Dựa vào vai trò để tạo bảng Detail tương ứng
-                var role = await _context.Accounts
-                    .Where(a => a.AccountID == employee.AccountID)
-                    .Select(a => a.Role.RoleName)
-                    .FirstOrDefaultAsync();
-
-                if (string.IsNullOrEmpty(role)) throw new Exception("Không tìm thấy vai trò cho tài khoản này.");
-
-                switch (role.ToLower())
-                {
-                    case "admin":
-                        if (employeeDto.AdminDetail == null) throw new ArgumentException("Thông tin chi tiết của Admin là bắt buộc.");
-                        var adminDetail = _mapper.Map<AdminDetail>(employeeDto.AdminDetail);
-                        adminDetail.EmployeeID = employee.EmployeeID;
-                        _context.AdminDetails.Add(adminDetail);
-                        break;
-                    case "manager":
-                        // Tương tự cho các vai trò khác
-                        break;
-                    case "sales":
-                         if (employeeDto.SalesPersonDetail == null) throw new ArgumentException("Thông tin chi tiết của Sales là bắt buộc.");
-                        var salesDetail = _mapper.Map<SalesPersonDetail>(employeeDto.SalesPersonDetail);
-                        salesDetail.EmployeeID = employee.EmployeeID;
-                        _context.SalesPersonDetails.Add(salesDetail);
-                        break;
-                    case "designer":
-                         if (employeeDto.DesignerDetail == null) throw new ArgumentException("Thông tin chi tiết của Designer là bắt buộc.");
-                        var designerDetail = _mapper.Map<DesignerDetail>(employeeDto.DesignerDetail);
-                        designerDetail.EmployeeID = employee.EmployeeID;
-                        _context.DesignerDetails.Add(designerDetail);
-                        break;
-                    case "technician":
-                        if (employeeDto.TechnicianDetail == null) throw new ArgumentException("Thông tin chi tiết của Technician là bắt buộc.");
-                        var techDetail = _mapper.Map<TechnicianDetail>(employeeDto.TechnicianDetail);
-                        techDetail.EmployeeID = employee.EmployeeID;
-                        _context.TechnicianDetails.Add(techDetail);
-                        break;
-                }
-
-                await _context.SaveChangesAsync(); // Lưu các bảng Detail
-                await transaction.CommitAsync(); // Hoàn tất giao dịch
-
-                return await GetEmployeeByIdAsync(employee.EmployeeID) ?? throw new Exception("Lỗi khi lấy lại nhân viên vừa tạo.");
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Đã cập nhật nhân viên với ID: {EmployeeID}", id);
+                return true;
             }
-            catch (Exception ex)
+            catch (DbUpdateConcurrencyException ex)
             {
-                await transaction.RollbackAsync(); // Nếu có lỗi, hoàn tác mọi thay đổi
-                _logger.LogError(ex, "Lỗi khi tạo nhân viên mới.");
+                _logger.LogError(ex, "Lỗi xung đột khi cập nhật nhân viên với ID: {EmployeeID}", id);
                 throw;
             }
         }
 
-        public async Task<EmployeeDto?> UpdateEmployeeAsync(string id, EmployeeCreateUpdateDto employeeDto)
-        {
-            // Logic cập nhật sẽ phức tạp hơn, cần phải xóa detail cũ, tạo detail mới nếu vai trò thay đổi
-            // Tạm thời để trống, chúng ta sẽ hoàn thiện sau.
-            throw new NotImplementedException();
-        }
-
         public async Task<bool> DeleteEmployeeAsync(string id)
         {
+            _logger.LogInformation("Yêu cầu xóa nhân viên với ID: {EmployeeID}", id);
             var employee = await _context.Employees.FindAsync(id);
-            if (employee == null) return false;
-            _context.Employees.Remove(employee); // EF Core sẽ tự động xóa các bảng Detail liên quan do có quan hệ 1-1
+            if (employee == null)
+            {
+                _logger.LogWarning("Không tìm thấy nhân viên để xóa với ID: {EmployeeID}", id);
+                return false;
+            }
+
+            _context.Employees.Remove(employee);
             await _context.SaveChangesAsync();
+            _logger.LogInformation("Đã xóa nhân viên với ID: {EmployeeID}", id);
             return true;
         }
+        
 
-        public async Task<bool> EmployeeExistsAsync(string id) => await _context.Employees.AnyAsync(e => e.EmployeeID == id);
-        public async Task<bool> StoreExistsAsync(string id) => await _context.Stores.AnyAsync(e => e.StoreID == id);
-        public async Task<bool> AccountExistsAsync(string id) => await _context.Accounts.AnyAsync(e => e.AccountID == id);
+        // --- HÀM HỖ TRỢ: KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (PUBLIC CHO INTERFACE) ---
+        public async Task<bool> EmployeeExistsAsync(string id)
+        {
+            return await _context.Employees.AnyAsync(e => e.EmployeeID == id);
+        }
+
+        public async Task<bool> StoreExistsAsync(string id)
+        {
+            return await _context.Stores.AnyAsync(e => e.StoreID == id);
+        }
+
+        public async Task<bool> AccountExistsAsync(string id)
+        {
+            return await _context.Accounts.AnyAsync(e => e.AccountID == id);
+        }
     }
 }
