@@ -48,12 +48,14 @@ namespace DecalXeAPI.Services.Implementations
             _logger.LogInformation("Đã trả về sản phẩm với ID: {ProductID}", id);
             return productDto;
         }
-
         public async Task<ProductDto> CreateProductAsync(Product product)
         {
             _logger.LogInformation("Yêu cầu tạo sản phẩm mới: {ProductName}", product.ProductName);
             _context.Products.Add(product);
             await _context.SaveChangesAsync();
+
+            await _context.Entry(product).Reference(p => p.Category).LoadAsync();
+            // ---------------------------------
 
             var productDto = _mapper.Map<ProductDto>(product);
             _logger.LogInformation("Đã tạo sản phẩm mới với ID: {ProductID}", product.ProductID);

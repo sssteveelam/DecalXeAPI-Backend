@@ -14,7 +14,10 @@ namespace DecalXeAPI.MappingProfiles
             CreateMap<Role, RoleDto>();
             CreateMap<Store, StoreDto>();
             CreateMap<DecalType, DecalTypeDto>();
-            CreateMap<Product, ProductDto>();
+            // DecalXeAPI/MappingProfiles/MainMappingProfile.cs
+            CreateMap<Product, ProductDto>()
+                .ForMember(dest => dest.Category, opt => opt.MapFrom(src => src.Category != null ? src.Category.CategoryName : string.Empty));
+                
             CreateMap<Account, AccountDto>()
                 .ForMember(dest => dest.RoleName, opt => opt.MapFrom(src => src.Role != null ? src.Role.RoleName : string.Empty));
             CreateMap<Employee, EmployeeDto>()
