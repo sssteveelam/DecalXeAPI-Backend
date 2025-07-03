@@ -24,7 +24,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     string? connectionString;
     string? railwayDatabaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
-    Console.WriteLine($"DATABASE_URL: {railwayDatabaseUrl}");
+    Console.WriteLine($"DATABASE_URL @tuantu: {railwayDatabaseUrl}");
 
     if (!string.IsNullOrEmpty(railwayDatabaseUrl))
     {
