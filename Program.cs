@@ -225,7 +225,6 @@ app.UseSwaggerUI(options =>
 {
     options.SwaggerEndpoint("/swagger/v1/swagger.json", "DecalXeAPI v1");
 });
-app.UseStaticFiles();
 
 // 4. Sử dụng CORS
 app.UseCors("AllowSpecificOrigin");
