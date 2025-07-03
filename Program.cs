@@ -1,21 +1,24 @@
 using DecalXeAPI.Data;
 using DecalXeAPI.MappingProfiles;
 using DecalXeAPI.Middleware;
-using DecalXeAPI.Services.Interfaces;
-using DecalXeAPI.Services.Implementations;
+using DecalXeAPI.Models;
+using DecalXeAPI.QueryParams;
+using DecalXeAPI.DTOs;
+using DecalXeAPI.Services.Interfaces; // Cần cho các Interface Services
+using DecalXeAPI.Services.Implementations; // Cần cho các Implementation Services
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore; // Cần cho context.Database.Migrate()
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi.Models; // Cần cho OpenApiInfo, OpenApiSecurityScheme, v.v.
 using System.Text;
-using Npgsql;
-using System;
-using System.Linq;
+using Npgsql; // Cần cho việc xử lý Connection String của Railway
+using System; // Cần cho Uri và Environment
+using System.Linq; // Cần cho Linq (ví dụ: .Last() cho URI segments)
 using Microsoft.Extensions.DependencyInjection; // Cần cho CreateScope(), GetRequiredService<T>()
 using Microsoft.Extensions.Logging; // Cần cho ILogger trong khối Migration
 using System.Reflection; // Cần cho Assembly.GetExecutingAssembly()
 using System.IO; // Cần cho Path.Combine()
-using Swashbuckle.AspNetCore.Filters; // <-- THÊM DÒNG NÀY
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,7 +29,6 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     string? connectionString;
     string? railwayDatabaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
-    Console.WriteLine($"DATABASE_URL @tuantu: {railwayDatabaseUrl}");
 
     if (!string.IsNullOrEmpty(railwayDatabaseUrl))
     {
@@ -50,7 +52,6 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     else
     {
         connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-        Console.WriteLine($"DefaultConnection: {connectionString}");
     }
 
     if (string.IsNullOrEmpty(connectionString))
@@ -68,39 +69,41 @@ builder.Services.AddAutoMapper(typeof(MainMappingProfile).Assembly);
 builder.Services.AddControllers();
 
 // --- Đăng ký Service Layer ---
-// --- Đăng ký Service Layer ---
-// Các Service cũ đã được xóa bỏ. Đây là danh sách các Service mới và còn lại.
-builder.Services.AddScoped<IAccountService, AccountService>();
-builder.Services.AddScoped<ICustomerService, CustomerService>();
-builder.Services.AddScoped<IEmployeeService, EmployeeService>();
-builder.Services.AddScoped<IRoleService, RoleService>();
-builder.Services.AddScoped<IStoreService, StoreService>();
-
-builder.Services.AddScoped<IProductService, ProductService>();
-builder.Services.AddScoped<IDecalTypeService, DecalTypeService>();
-builder.Services.AddScoped<IDecalTemplateService, DecalTemplateService>();
-builder.Services.AddScoped<IPrintingPriceDetailService, PrintingPriceDetailService>();
-
+// Chỉ giữ lại các Services chắc chắn còn tồn tại trong project
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IOrderDetailService, OrderDetailService>();
 builder.Services.AddScoped<ICustomServiceRequestService, CustomServiceRequestService>();
 builder.Services.AddScoped<IDesignService, DesignService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IStoreService, StoreService>();
+builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IDecalTypeService, DecalTypeService>();
+builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<ICustomerService, CustomerService>();
+builder.Services.AddScoped<IEmployeeService, EmployeeService>();
+builder.Services.AddScoped<IRoleService, RoleService>();
+builder.Services.AddScoped<IDecalTemplateService, DecalTemplateService>();
+builder.Services.AddScoped<IServiceDecalTemplateService, ServiceDecalTemplateService>();
 builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 builder.Services.AddScoped<IWarrantyService, WarrantyService>();
+builder.Services.AddScoped<IPrintingPriceDetailService, PrintingPriceDetailService>();
 builder.Services.AddScoped<IDesignCommentService, DesignCommentService>();
-builder.Services.AddScoped<IEmailService, EmailService>();
 
-// Các Service cho Vehicle
-builder.Services.AddScoped<IVehicleBrandService, VehicleBrandService>();
-builder.Services.AddScoped<IVehicleModelService, VehicleModelService>();
-builder.Services.AddScoped<IVehicleModelDecalTemplateService, VehicleModelDecalTemplateService>();
+// Các Services liên quan đến Vehicle và CustomerVehicle (đã được comment/xóa để quay về trạng thái ổn định)
+// builder.Services.AddScoped<IVehicleService, VehicleService>();
+// builder.Services.AddScoped<ICustomerVehicleService, CustomerVehicleService>();
 
-// Các Service cho các bảng mới
-builder.Services.AddScoped<IDepositService, DepositService>();
-builder.Services.AddScoped<IDesignWorkOrderService, DesignWorkOrderService>();
-builder.Services.AddScoped<ITechLaborPriceService, TechLaborPriceService>();
-builder.Services.AddScoped<IServiceVehicleModelProductService, ServiceVehicleModelProductService>();
+// Các Services mới từ Review2 (đã được comment để quay về trạng thái ổn định)
+// builder.Services.AddScoped<IAdminDetailService, AdminDetailService>();
+// builder.Services.AddScoped<IManagerDetailService, ManagerDetailService>();
+// builder.Services.AddScoped<ISalesPersonDetailService, SalesPersonDetailService>();
+// builder.Services.AddScoped<IDesignerDetailService, DesignerDetailService>();
+// builder.Services.AddScoped<ITechnicianDetailService, TechnicianDetailService>();
+// builder.Services.AddScoped<IDepositService, DepositService>();
+// builder.Services.AddScoped<ITechLaborPriceService, TechLaborPriceService>();
+// builder.Services.AddScoped<IDesignWorkOrderService, DesignWorkOrderService>();
+// builder.Services.AddScoped<IServiceVehicleModelProductService, ServiceVehicleModelProductService>();
+
 
 // 4. Cấu hình Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
@@ -138,13 +141,8 @@ builder.Services.AddSwaggerGen(c =>
     {
         c.IncludeXmlComments(xmlPath);
     }
-    else
-    {
-        // Có thể thêm log cảnh báo nếu file XML không tìm thấy trong Development
-    }
-
-    c.ExampleFilters();
 });
+
 
 // 5. Cấu hình Authentication
 builder.Services.AddAuthentication(options =>
@@ -173,36 +171,23 @@ builder.Services.AddAuthorization();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigin",
-        policy => policy.WithOrigins("http://localhost:3000", "http://localhost:3001")
-                        .AllowAnyHeader()
-                        .AllowAnyMethod()
-                        .AllowCredentials());
-});
-
-
-// 7. Cấu hình CORS (Cross-Origin Resource Sharing)
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowSpecificOrigin", 
-        policy => policy.AllowAnyOrigin() 
+        policy => policy.AllowAnyOrigin()
                         .AllowAnyHeader()
                         .AllowAnyMethod()
                         );
 });
 
 
-var app = builder.Build(); // <-- app được Build ở đây
+var app = builder.Build();
 
-
-
-
+// --- TỰ ĐỘNG CHẠY MIGRATION KHI ỨNG DỤNG KHỞI ĐỘNG ---
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
-        context.Database.Migrate(); // <-- Lệnh chạy tất cả migrations chưa được áp dụng
+        context.Database.Migrate();
     }
     catch (Exception ex)
     {
@@ -210,31 +195,19 @@ using (var scope = app.Services.CreateScope())
         logger.LogError(ex, "Đã xảy ra lỗi khi di chuyển database.");
     }
 }
-// --- KẾT THÚC PHẦN TỰ ĐỘNG CHẠY MIGRATION ---
-
 
 // --- CẤU HÌNH CÁC MIDDLEWARE (PIPELINE XỬ LÝ REQUEST) ---
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-// 2. Chuyển hướng HTTP sang HTTPS
-// app.UseHttpsRedirection();
+// Swagger UI (Chỉ dùng trong môi trường Phát triển)
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "DecalXeAPI v1");
+    });
 
-// 3. Swagger UI (Chỉ dùng trong môi trường Phát triển)
-app.UseSwagger();
-app.UseSwaggerUI(options =>
-{
-    options.SwaggerEndpoint("/swagger/v1/swagger.json", "DecalXeAPI v1");
-});
-
-// 4. Sử dụng CORS
 app.UseCors("AllowSpecificOrigin");
-
-// 5. Sử dụng Authentication và Authorization
 app.UseAuthentication();
 app.UseAuthorization();
-
-// 6. Map các Controller
 app.MapControllers();
-
-// Khởi chạy ứng dụng
 app.Run();
