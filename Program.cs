@@ -13,7 +13,7 @@ using System;
 using System.Linq;
 using Microsoft.Extensions.DependencyInjection; // Cần cho CreateScope(), GetRequiredService<T>()
 using Microsoft.Extensions.Logging; // Cần cho ILogger trong khối Migration
-
+using Swashbuckle.AspNetCore.Filters; // <-- THÊM DÒNG NÀY
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -128,6 +128,20 @@ builder.Services.AddSwaggerGen(c =>
             Array.Empty<string>()
         }
     });
+
+    // Đảm bảo dòng này có để đọc XML Comments từ project
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    if (File.Exists(xmlPath))
+    {
+        c.IncludeXmlComments(xmlPath);
+    }
+    else
+    {
+        // Có thể thêm log cảnh báo nếu file XML không tìm thấy trong Development
+    }
+
+    c.ExampleFilters();
 });
 
 // 5. Cấu hình Authentication
@@ -204,8 +218,12 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 // app.UseHttpsRedirection();
 
 // 3. Swagger UI (Chỉ dùng trong môi trường Phát triển)
- app.UseSwagger();
-    app.UseSwaggerUI(options => { options.SwaggerEndpoint("/swagger/v1/swagger.json", "DecalXeAPI v1"); });
+app.UseSwagger();
+app.UseSwaggerUI(options =>
+{
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "DecalXeAPI v1");
+});
+app.UseStaticFiles();
 
 // 4. Sử dụng CORS
 app.UseCors("AllowSpecificOrigin");

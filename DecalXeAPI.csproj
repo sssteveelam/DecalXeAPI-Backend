@@ -19,7 +19,8 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.0" /> <!-- Đổi từ 9.0.4 xuống 8.0.0 -->
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" /> <!-- Giữ hoặc đổi sang 6.5.0 để tương thích tốt với .NET 8.0 -->
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore.Filters" Version="9.0.0" /> <!-- Giữ hoặc đổi sang 6.5.0 để tương thích tốt với .NET 8.0 -->
   </ItemGroup>
 
 </Project>
