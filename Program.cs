@@ -24,6 +24,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     string? connectionString;
     string? railwayDatabaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+    Console.WriteLine($"DATABASE_URL: {railwayDatabaseUrl}");
 
     if (!string.IsNullOrEmpty(railwayDatabaseUrl))
     {
@@ -47,6 +48,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     else
     {
         connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+        Console.WriteLine($"DefaultConnection: {connectionString}");
     }
 
     if (string.IsNullOrEmpty(connectionString))
