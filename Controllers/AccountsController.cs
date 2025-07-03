@@ -9,8 +9,6 @@ using System.Collections.Generic;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 using System; // Để sử dụng ArgumentException
-using Swashbuckle.AspNetCore.Filters; // <-- THÊM DÒNG NÀY
-using DecalXeAPI.SwaggerExamples; 
 
 
 namespace DecalXeAPI.Controllers
@@ -33,13 +31,6 @@ namespace DecalXeAPI.Controllers
             _logger = logger;
         }
 
-        /// <summary>
-        /// Lấy danh sách tất cả các tài khoản người dùng hiện có trong hệ thống.
-        /// </summary>
-        /// <returns>Danh sách các đối tượng AccountDto.</returns>
-        /// <response code="200">Trả về danh sách tài khoản.</response>
-        /// <response code="401">Không được ủy quyền (chưa đăng nhập hoặc token không hợp lệ).</response>
-        /// <response code="403">Bị cấm (người dùng không có quyền truy cập).</response>
         // API: GET api/Accounts
         [HttpGet]
         public async Task<ActionResult<IEnumerable<AccountDto>>> GetAccounts()
@@ -49,17 +40,6 @@ namespace DecalXeAPI.Controllers
             return Ok(accounts);
         }
 
-
-
-        /// <summary>
-        /// Lấy thông tin chi tiết của một tài khoản cụ thể dựa trên AccountID.
-        /// </summary>
-        /// <param name="id">AccountID của tài khoản cần lấy.</param>
-        /// <returns>Đối tượng AccountDto chứa thông tin chi tiết.</returns>
-        /// <response code="200">Trả về thông tin tài khoản.</response>
-        /// <response code="404">Không tìm thấy tài khoản với ID đã cho.</response>
-        /// <response code="401">Không được ủy quyền.</response>
-        /// <response code="403">Bị cấm.</response>
         // API: GET api/Accounts/{id}
         [HttpGet("{id}")]
         public async Task<ActionResult<AccountDto>> GetAccount(string id)
@@ -76,21 +56,8 @@ namespace DecalXeAPI.Controllers
             return Ok(accountDto);
         }
 
-        /// <summary>
-        /// Tạo một tài khoản người dùng mới.
-        /// </summary>
-        /// <remarks>
-        /// Cần cung cấp đầy đủ thông tin để tạo tài khoản. Mật khẩu sẽ được lưu plaintext (thực tế cần hash).
-        /// </remarks>
-        /// <param name="account">Đối tượng Account chứa thông tin tài khoản cần tạo.</param>
-        /// <returns>Đối tượng AccountDto của tài khoản vừa tạo.</returns>
-        /// <response code="201">Tạo tài khoản thành công.</response>
-        /// <response code="400">Dữ liệu đầu vào không hợp lệ hoặc Username/RoleID đã tồn tại.</response>
-        /// <response code="401">Không được ủy quyền.</response>
-        /// <response code="403">Bị cấm.</response>
         // API: POST api/Accounts
         [HttpPost]
-        [SwaggerRequestExample(typeof(Account), typeof(AccountRequestExample))] // <-- GIỮ NGUYÊN DÒNG NÀY CHO POST
         public async Task<ActionResult<AccountDto>> PostAccount(Account account) // Vẫn nhận Account Model
         {
             _logger.LogInformation("Yêu cầu tạo tài khoản mới: {Username}", account.Username);
@@ -115,20 +82,8 @@ namespace DecalXeAPI.Controllers
             }
         }
 
-
-        /// <summary>
-        /// Cập nhật thông tin của một tài khoản hiện có dựa trên AccountID.
-        /// </summary>
-        /// <param name="id">AccountID của tài khoản cần cập nhật.</param>
-        /// <param name="account">Đối tượng Account chứa thông tin cập nhật.</param>
-        /// <returns>Không có nội dung nếu cập nhật thành công.</returns>
-        /// <response code="204">Cập nhật thành công.</response>
-        /// <response code="400">ID trong URL không khớp với AccountID trong body, dữ liệu không hợp lệ, hoặc RoleID/Username đã tồn tại.</response>
-        /// <response code="404">Không tìm thấy tài khoản để cập nhật.</response>
-        /// <response code="401">Không được ủy quyền.</response>
-        /// <response code="403">Bị cấm.</response>
+        // API: PUT api/Accounts/{id}
         [HttpPut("{id}")]
-        [SwaggerRequestExample(typeof(Account), typeof(AccountUpdateRequestExample))] 
         public async Task<IActionResult> PutAccount(string id, Account account)
         {
             _logger.LogInformation("Yêu cầu cập nhật tài khoản với ID: {AccountID}", id);
@@ -174,19 +129,7 @@ namespace DecalXeAPI.Controllers
             }
         }
 
-        /// <summary>
-        /// Xóa một tài khoản người dùng khỏi hệ thống dựa trên AccountID.
-        /// </summary>
-        /// <remarks>
-        /// Chỉ Admin hoặc Manager có thể xóa tài khoản. Tài khoản không thể bị xóa nếu còn các liên kết (ví dụ: với Customer/Employee).
-        /// </remarks>
-        /// <param name="id">AccountID của tài khoản cần xóa.</param>
-        /// <returns>Không có nội dung nếu xóa thành công.</returns>
-        /// <response code="204">Xóa thành công.</response>
-        /// <response code="400">Không thể xóa tài khoản vì đang được sử dụng.</response>
-        /// <response code="404">Không tìm thấy tài khoản để xóa.</response>
-        /// <response code="401">Không được ủy quyền.</response>
-        /// <response code="403">Bị cấm.</response>
+        // API: DELETE api/Accounts/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteAccount(string id)
         {
