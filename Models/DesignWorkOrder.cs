@@ -38,3 +38,4 @@ namespace DecalXeAPI.Models
         public string? Requirements { get; set; } // Yêu cầu chi tiết
     }
 }
+

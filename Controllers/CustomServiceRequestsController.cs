@@ -61,7 +61,7 @@ namespace DecalXeAPI.Controllers
 
         // API: POST api/CustomServiceRequests
         [HttpPost]
-        [Authorize(Roles = "Customer,Sales")]
+        [Authorize(Roles = "Admin,Manager,Customer,Sales")] 
         public async Task<ActionResult<CustomServiceRequestDto>> PostCustomServiceRequest(
             [FromBody] CreateCustomServiceRequestDto createDto)
         {
