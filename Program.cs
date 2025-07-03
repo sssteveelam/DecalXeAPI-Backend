@@ -13,6 +13,8 @@ using System;
 using System.Linq;
 using Microsoft.Extensions.DependencyInjection; // Cần cho CreateScope(), GetRequiredService<T>()
 using Microsoft.Extensions.Logging; // Cần cho ILogger trong khối Migration
+using System.Reflection; // Cần cho Assembly.GetExecutingAssembly()
+using System.IO; // Cần cho Path.Combine()
 using Swashbuckle.AspNetCore.Filters; // <-- THÊM DÒNG NÀY
 
 var builder = WebApplication.CreateBuilder(args);
