@@ -56,78 +56,52 @@ namespace DecalXeAPI.Controllers
 
             return Ok(customerDto);
         }
-
-        // API: POST api/Customers
+// API: POST api/Customers (ĐÃ NÂNG CẤP)
         [HttpPost]
-        [Authorize(Roles = "Admin, Manager, Customer,Sales")] // Khách hàng hoặc Sales có thể tạo
-        public async Task<ActionResult<CustomerDto>> PostCustomer(Customer customer) // Vẫn nhận Customer Model
+        [Authorize(Roles = "Admin,Manager,Customer,Sales")]
+        public async Task<ActionResult<CustomerDto>> PostCustomer(CreateCustomerDto createDto)
         {
-            _logger.LogInformation("Yêu cầu tạo khách hàng mới: {FirstName} {LastName}", customer.FirstName, customer.LastName);
-
-            // --- KIỂM TRA FKs CHÍNH TRƯỚC KHI GỬI VÀO SERVICE ---
-            if (!string.IsNullOrEmpty(customer.AccountID) && !AccountExists(customer.AccountID))
-            {
-                return BadRequest("AccountID không tồn tại.");
-            }
+            _logger.LogInformation("Yêu cầu tạo khách hàng mới: {FirstName} {LastName}", createDto.FirstName, createDto.LastName);
+            
+            var customer = _mapper.Map<Customer>(createDto);
 
             try
             {
                 var createdCustomerDto = await _customerService.CreateCustomerAsync(customer);
-                _logger.LogInformation("Đã tạo khách hàng mới với ID: {CustomerID}", createdCustomerDto.CustomerID);
                 return CreatedAtAction(nameof(GetCustomer), new { id = createdCustomerDto.CustomerID }, createdCustomerDto);
             }
             catch (ArgumentException ex)
             {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi tạo khách hàng: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
             }
         }
 
-        // API: PUT api/Customers/{id}
+        // API: PUT api/Customers/{id} (ĐÃ NÂNG CẤP)
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin,Manager,Sales")] // Admin, Manager, Sales có thể cập nhật
-        public async Task<IActionResult> PutCustomer(string id, Customer customer)
+        [Authorize(Roles = "Admin,Manager,Sales")]
+        public async Task<IActionResult> PutCustomer(string id, UpdateCustomerDto updateDto)
         {
             _logger.LogInformation("Yêu cầu cập nhật khách hàng với ID: {CustomerID}", id);
-            if (id != customer.CustomerID)
+
+            var existingCustomer = await _context.Customers.FindAsync(id);
+            if (existingCustomer == null)
             {
-                return BadRequest();
+                return NotFound();
             }
 
-            // Kiểm tra FKs chính
-            if (!string.IsNullOrEmpty(customer.AccountID) && !AccountExists(customer.AccountID))
-            {
-                return BadRequest("AccountID không tồn tại.");
-            }
+            // Dùng AutoMapper để cập nhật các trường từ DTO vào Model đã tồn tại
+            _mapper.Map(updateDto, existingCustomer);
 
             try
             {
-                var success = await _customerService.UpdateCustomerAsync(id, customer);
-
-                if (!success)
-                {
-                    _logger.LogWarning("Không tìm thấy khách hàng để cập nhật với ID: {CustomerID}", id);
-                    return NotFound();
-                }
-
-                _logger.LogInformation("Đã cập nhật khách hàng với ID: {CustomerID}", id);
+                var success = await _customerService.UpdateCustomerAsync(id, existingCustomer);
+                if (!success) return NotFound();
+                
                 return NoContent();
             }
             catch (ArgumentException ex)
             {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật khách hàng: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!CustomerExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
             }
         }
 

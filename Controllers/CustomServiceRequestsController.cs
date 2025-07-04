@@ -76,17 +76,28 @@ namespace DecalXeAPI.Controllers
             return CreatedAtAction(nameof(GetCustomServiceRequest), new { id = createdDto.CustomRequestID }, createdDto);
         }
 
-        // API: PUT api/CustomServiceRequests/{id}
+        // API: PUT api/CustomServiceRequests/{id} (ĐÃ NÂNG CẤP)
         [HttpPut("{id}")]
         [Authorize(Roles = "Admin,Manager,Sales,Designer")]
-        public async Task<IActionResult> PutCustomServiceRequest(string id, CustomServiceRequest customServiceRequest)
+        public async Task<IActionResult> PutCustomServiceRequest(string id, UpdateCustomServiceRequestDto updateDto)
         {
+            // Tìm đối tượng gốc trong database
+            var existingRequest = await _context.CustomServiceRequests.FindAsync(id);
+            if (existingRequest == null)
+            {
+                return NotFound();
+            }
+
+            // Ánh xạ các thay đổi từ DTO vào đối tượng đã có
+            _mapper.Map(updateDto, existingRequest);
+            
             // Ủy quyền logic cập nhật cho Service Layer
-            var success = await _customServiceRequestService.UpdateCustomServiceRequestAsync(id, customServiceRequest);
+            var success = await _customServiceRequestService.UpdateCustomServiceRequestAsync(id, existingRequest);
 
             if (!success)
             {
-                return NotFound(); // Service trả về false nếu không tìm thấy
+                // Có thể có lỗi logic khác trong service, hoặc đối tượng đã bị xóa
+                return NotFound();
             }
 
             return NoContent();
