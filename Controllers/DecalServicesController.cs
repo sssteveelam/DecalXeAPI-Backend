@@ -51,43 +51,42 @@ namespace DecalXeAPI.Controllers
             return Ok(decalServiceDto);
         }
 
-        // API: POST api/DecalServices
-        // Tạo một DecalService mới, nhận vào DecalService Model, trả về DecalServiceDto sau khi tạo
+        // API: POST api/DecalServices (ĐÃ NÂNG CẤP)
         [HttpPost]
-        public async Task<ActionResult<DecalServiceDto>> PostDecalService(DecalService decalService) // Kiểu trả về là DecalServiceDto
+        public async Task<ActionResult<DecalServiceDto>> PostDecalService(CreateDecalServiceDto createDto)
         {
-            // Kiểm tra xem DecalTypeID có tồn tại không
-            if (!string.IsNullOrEmpty(decalService.DecalTypeID) && !DecalTypeExists(decalService.DecalTypeID))
+            if (!DecalTypeExists(createDto.DecalTypeID))
             {
                 return BadRequest("DecalTypeID không tồn tại.");
             }
 
+            var decalService = _mapper.Map<DecalService>(createDto);
+            
             _context.DecalServices.Add(decalService);
             await _context.SaveChangesAsync();
 
-            // Tải lại thông tin DecalType để AutoMapper có thể ánh xạ DecalTypeName
             await _context.Entry(decalService).Reference(ds => ds.DecalType).LoadAsync();
-
-            // Ánh xạ DecalService Model vừa tạo sang DecalServiceDto để trả về
+            
             var decalServiceDto = _mapper.Map<DecalServiceDto>(decalService);
             return CreatedAtAction(nameof(GetDecalService), new { id = decalServiceDto.ServiceID }, decalServiceDto);
         }
 
-        // API: PUT api/DecalServices/{id}
+        // API: PUT api/DecalServices/{id} (ĐÃ NÂNG CẤP)
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutDecalService(string id, DecalService decalService)
+        public async Task<IActionResult> PutDecalService(string id, UpdateDecalServiceDto updateDto)
         {
-            if (id != decalService.ServiceID)
+            var decalService = await _context.DecalServices.FindAsync(id);
+            if (decalService == null)
             {
-                return BadRequest();
+                return NotFound();
             }
 
-            if (!string.IsNullOrEmpty(decalService.DecalTypeID) && !DecalTypeExists(decalService.DecalTypeID))
+            if (!DecalTypeExists(updateDto.DecalTypeID))
             {
                 return BadRequest("DecalTypeID không tồn tại.");
             }
 
-            _context.Entry(decalService).State = EntityState.Modified;
+            _mapper.Map(updateDto, decalService);
 
             try
             {
@@ -107,7 +106,6 @@ namespace DecalXeAPI.Controllers
 
             return NoContent();
         }
-
         // API: DELETE api/DecalServices/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteDecalService(string id)

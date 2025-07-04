@@ -18,6 +18,9 @@ namespace DecalXeAPI.MappingProfiles
             CreateMap<CreateCustomerDto, Customer>();
             CreateMap<UpdateCustomerDto, Customer>();
             CreateMap<UpdateCustomServiceRequestDto, CustomServiceRequest>();
+            CreateMap<CreateDecalServiceDto, DecalService>();
+            CreateMap<UpdateDecalServiceDto, DecalService>();
+
             
             // DecalXeAPI/MappingProfiles/MainMappingProfile.cs
             CreateMap<Product, ProductDto>()
