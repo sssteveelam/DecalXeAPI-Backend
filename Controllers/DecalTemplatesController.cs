@@ -55,17 +55,13 @@ namespace DecalXeAPI.Controllers
             return Ok(decalTemplateDto);
         }
 
-        // API: POST api/DecalTemplates
+        // API: POST api/DecalTemplates (ĐÃ NÂNG CẤP)
         [HttpPost]
-        public async Task<ActionResult<DecalTemplateDto>> PostDecalTemplate(DecalTemplate decalTemplate) // Vẫn nhận Model
+        public async Task<ActionResult<DecalTemplateDto>> PostDecalTemplate(CreateDecalTemplateDto createDto)
         {
-            _logger.LogInformation("Yêu cầu tạo mẫu decal mới: {TemplateName}", decalTemplate.TemplateName);
+            _logger.LogInformation("Yêu cầu tạo mẫu decal mới: {TemplateName}", createDto.TemplateName);
 
-            // --- KIỂM TRA FKs CHÍNH TRƯỚC KHI GỬI VÀO SERVICE ---
-            if (!string.IsNullOrEmpty(decalTemplate.DecalTypeID) && !DecalTypeExists(decalTemplate.DecalTypeID))
-            {
-                return BadRequest("DecalTypeID không tồn tại.");
-            }
+            var decalTemplate = _mapper.Map<DecalTemplate>(createDto);
 
             try
             {
@@ -73,57 +69,37 @@ namespace DecalXeAPI.Controllers
                 _logger.LogInformation("Đã tạo mẫu decal mới với ID: {TemplateID}", createdDecalTemplateDto.TemplateID);
                 return CreatedAtAction(nameof(GetDecalTemplate), new { id = createdDecalTemplateDto.TemplateID }, createdDecalTemplateDto);
             }
-            catch (ArgumentException ex) // Bắt lỗi từ Service nếu có (ví dụ: duplicate name)
+            catch (ArgumentException ex)
             {
                 _logger.LogError(ex, "Lỗi nghiệp vụ khi tạo mẫu decal: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
             }
         }
 
-        // API: PUT api/DecalTemplates/{id}
+        // API: PUT api/DecalTemplates/{id} (ĐÃ NÂNG CẤP)
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutDecalTemplate(string id, DecalTemplate decalTemplate)
+        public async Task<IActionResult> PutDecalTemplate(string id, UpdateDecalTemplateDto updateDto)
         {
             _logger.LogInformation("Yêu cầu cập nhật mẫu decal với ID: {TemplateID}", id);
-            if (id != decalTemplate.TemplateID)
-            {
-                return BadRequest();
-            }
 
-            // Kiểm tra FKs chính
-            if (!string.IsNullOrEmpty(decalTemplate.DecalTypeID) && !DecalTypeExists(decalTemplate.DecalTypeID))
+            var decalTemplate = await _context.DecalTemplates.FindAsync(id);
+            if (decalTemplate == null)
             {
-                return BadRequest("DecalTypeID không tồn tại.");
+                return NotFound();
             }
+            
+            _mapper.Map(updateDto, decalTemplate);
 
             try
             {
                 var success = await _decalTemplateService.UpdateDecalTemplateAsync(id, decalTemplate);
+                if (!success) return NotFound();
 
-                if (!success)
-                {
-                    _logger.LogWarning("Không tìm thấy mẫu decal để cập nhật với ID: {TemplateID}", id);
-                    return NotFound();
-                }
-
-                _logger.LogInformation("Đã cập nhật mẫu decal với ID: {TemplateID}", id);
                 return NoContent();
             }
             catch (ArgumentException ex)
             {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật mẫu decal: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!DecalTemplateExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
             }
         }
 

@@ -20,8 +20,9 @@ namespace DecalXeAPI.MappingProfiles
             CreateMap<UpdateCustomServiceRequestDto, CustomServiceRequest>();
             CreateMap<CreateDecalServiceDto, DecalService>();
             CreateMap<UpdateDecalServiceDto, DecalService>();
+            CreateMap<CreateDecalTemplateDto, DecalTemplate>();
+            CreateMap<UpdateDecalTemplateDto, DecalTemplate>();
 
-            
             // DecalXeAPI/MappingProfiles/MainMappingProfile.cs
             CreateMap<Product, ProductDto>()
                 .ForMember(dest => dest.Category, opt => opt.MapFrom(src => src.Category != null ? src.Category.CategoryName : string.Empty));
