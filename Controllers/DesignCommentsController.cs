@@ -64,7 +64,7 @@ namespace DecalXeAPI.Controllers
         // Customer, Designer, Sales (người liên quan đến Order/Design) có thể gửi comment
         [HttpPost]
         [Authorize(Roles = "Customer,Designer,Sales,Admin,Manager")] // Cho phép các role liên quan gửi comment
-        public async Task<ActionResult<DesignCommentDto>> PostDesignComment(DesignComment designComment) // Vẫn nhận Model
+        public async Task<ActionResult<DesignCommentDto>> PostDesignComment(CreateDesignCommentDto designComment) // Vẫn nhận Model
         {
             _logger.LogInformation("Yêu cầu tạo bình luận thiết kế mới cho DesignID: {DesignID}, SenderAccountID: {SenderAccountID}",
                                     designComment.DesignID, designComment.SenderAccountID);
