@@ -112,65 +112,52 @@ namespace DecalXeAPI.Controllers
 
         // API: PUT api/DesignComments/{id}
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin,Manager,Designer,Sales")] // Admin, Manager, Designer, Sales có thể cập nhật
-        public async Task<IActionResult> PutDesignComment(string id, DesignComment designComment)
+        [Authorize(Roles = "Admin,Manager,Designer,Sales")] // Chỉ các role này có quyền cập nhật
+        public async Task<IActionResult> PutDesignComment(string id, UpdateDesignCommentDto updateDto)
         {
             _logger.LogInformation("Yêu cầu cập nhật bình luận thiết kế với ID: {CommentID}", id);
-            if (id != designComment.CommentID)
+
+            // Bước 1: Tìm bình luận gốc trong database
+            var existingComment = await _context.DesignComments.FindAsync(id);
+
+            if (existingComment == null)
             {
-                return BadRequest();
+                _logger.LogWarning("Không tìm thấy bình luận để cập nhật với ID: {CommentID}", id);
+                return NotFound();
             }
 
-            // Kiểm tra FKs chính
-            if (!string.IsNullOrEmpty(designComment.DesignID) && !DesignExists(designComment.DesignID))
+            // Bước 2: (Tùy chọn nhưng rất quan trọng) Kiểm tra quyền sở hữu
+            // Logic: Chỉ người tạo ra bình luận hoặc Admin/Manager mới được sửa
+            var currentAccountID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (existingComment.SenderAccountID != currentAccountID && !User.IsInRole("Admin") && !User.IsInRole("Manager"))
             {
-                return BadRequest("DesignID không tồn tại.");
-            }
-            if (!string.IsNullOrEmpty(designComment.SenderAccountID) && !AccountExists(designComment.SenderAccountID))
-            {
-                return BadRequest("SenderAccountID không tồn tại.");
-            }
-            if (!string.IsNullOrEmpty(designComment.ParentCommentID) && !DesignCommentExists(designComment.ParentCommentID))
-            {
-                return BadRequest("ParentCommentID không tồn tại.");
+                _logger.LogWarning("Tài khoản {CurrentAccountID} không có quyền sửa bình luận {CommentID} của người khác.", currentAccountID, id);
+                return Forbid("Bạn không có quyền sửa bình luận này.");
             }
 
-            // Logic kiểm tra người cập nhật có phải người tạo comment không (nếu muốn hạn chế)
-            // var currentAccountID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            // var existingCommentDto = await _designCommentService.GetDesignCommentByIdAsync(id);
-            // if (User.IsInRole("Customer") && existingCommentDto != null && existingCommentDto.SenderAccountID != currentAccountID)
-            // {
-            //     return Forbid("Bạn chỉ có thể cập nhật bình luận của chính mình.");
-            // }
-
+            // Bước 3: Cập nhật nội dung từ DTO và gọi Service
+            // Chuyển logic cập nhật vào service để tái sử dụng
             try
             {
-                var success = await _designCommentService.UpdateDesignCommentAsync(id, designComment);
+                // Ta chỉ cập nhật nội dung bình luận
+                existingComment.CommentText = updateDto.CommentText;
+
+                // Gọi service để cập nhật
+                var success = await _designCommentService.UpdateDesignCommentAsync(id, existingComment);
 
                 if (!success)
                 {
-                    _logger.LogWarning("Không tìm thấy bình luận thiết kế để cập nhật với ID: {CommentID}", id);
+                    // Trường hợp này hiếm khi xảy ra nếu đã Find ở trên, nhưng vẫn để phòng hờ
                     return NotFound();
                 }
 
                 _logger.LogInformation("Đã cập nhật bình luận thiết kế với ID: {CommentID}", id);
-                return NoContent();
+                return NoContent(); // Trả về 204 No Content là chuẩn cho một yêu cầu PUT thành công
             }
-            catch (ArgumentException ex)
+            catch (Exception ex)
             {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật bình luận thiết kế: {ErrorMessage}", ex.Message);
-                return BadRequest(ex.Message);
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!DesignCommentExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                _logger.LogError(ex, "Lỗi không mong muốn khi cập nhật bình luận {CommentID}", id);
+                return StatusCode(500, "Đã xảy ra lỗi nội bộ.");
             }
         }
 
