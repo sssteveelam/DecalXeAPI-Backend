@@ -64,21 +64,26 @@ namespace DecalXeAPI.Controllers
         // Customer, Designer, Sales (người liên quan đến Order/Design) có thể gửi comment
         [HttpPost]
         [Authorize(Roles = "Customer,Designer,Sales,Admin,Manager")] // Cho phép các role liên quan gửi comment
-        public async Task<ActionResult<DesignCommentDto>> PostDesignComment(CreateDesignCommentDto designComment) // Vẫn nhận Model
+        public async Task<ActionResult<DesignCommentDto>> PostDesignComment(CreateDesignCommentDto createDto) // Bước 1: Nhận DTO từ client
         {
+            // ---- BƯỚC 2: DÙNG AUTOMAPPER ĐỂ "DỊCH" TỪ DTO SANG MODEL ----
+            // Đây là bước quan trọng nhất để sửa lỗi "cannot convert"
+            var designComment = _mapper.Map<DesignComment>(createDto);
+            // -----------------------------------------------------------
+
             _logger.LogInformation("Yêu cầu tạo bình luận thiết kế mới cho DesignID: {DesignID}, SenderAccountID: {SenderAccountID}",
                                     designComment.DesignID, designComment.SenderAccountID);
 
-            // --- KIỂM TRA FKs CHÍNH TRƯỚC KHI GỬI VÀO SERVICE ---
-            if (!string.IsNullOrEmpty(designComment.DesignID) && !DesignExists(designComment.DesignID))
+            // --- KIỂM TRA FKs CHÍNH TRƯỚC KHI GỬI VÀO SERVICE (Giữ nguyên logic của đệ) ---
+            if (!string.IsNullOrEmpty(designComment.DesignID) && !await _designCommentService.DesignExistsAsync(designComment.DesignID))
             {
                 return BadRequest("DesignID không tồn tại.");
             }
-            if (!string.IsNullOrEmpty(designComment.SenderAccountID) && !AccountExists(designComment.SenderAccountID))
+            if (!string.IsNullOrEmpty(designComment.SenderAccountID) && !await _designCommentService.AccountExistsAsync(designComment.SenderAccountID))
             {
                 return BadRequest("SenderAccountID không tồn tại.");
             }
-            if (!string.IsNullOrEmpty(designComment.ParentCommentID) && !DesignCommentExists(designComment.ParentCommentID))
+            if (!string.IsNullOrEmpty(designComment.ParentCommentID) && !await _designCommentService.DesignCommentExistsAsync(designComment.ParentCommentID))
             {
                 return BadRequest("ParentCommentID không tồn tại.");
             }
@@ -93,6 +98,7 @@ namespace DecalXeAPI.Controllers
 
             try
             {
+                // Bước 3: Đưa đối tượng Model đã được dịch cho Service xử lý
                 var createdDesignCommentDto = await _designCommentService.CreateDesignCommentAsync(designComment);
                 _logger.LogInformation("Đã tạo bình luận thiết kế mới với ID: {CommentID}", createdDesignCommentDto.CommentID);
                 return CreatedAtAction(nameof(GetDesignComment), new { id = createdDesignCommentDto.CommentID }, createdDesignCommentDto);
