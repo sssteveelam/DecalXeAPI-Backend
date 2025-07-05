@@ -55,62 +55,51 @@ namespace DecalXeAPI.Controllers
             return Ok(productDto);
         }
 
-        // API: POST api/Products
+        // API: POST api/Products (ĐÃ NÂNG CẤP)
         [HttpPost]
-        public async Task<ActionResult<ProductDto>> PostProduct(Product product) // Vẫn nhận Product Model
+        public async Task<ActionResult<ProductDto>> PostProduct(CreateProductDto createDto)
         {
-            _logger.LogInformation("Yêu cầu tạo sản phẩm mới: {ProductName}", product.ProductName);
+            _logger.LogInformation("Yêu cầu tạo sản phẩm mới: {ProductName}", createDto.ProductName);
+            
+            // Đệ có thể thêm logic kiểm tra CategoryID tồn tại ở đây nếu muốn
+            
+            var product = _mapper.Map<Product>(createDto);
+            
             try
             {
                 var createdProductDto = await _productService.CreateProductAsync(product);
-                _logger.LogInformation("Đã tạo sản phẩm mới với ID: {ProductID}", createdProductDto.ProductID);
                 return CreatedAtAction(nameof(GetProduct), new { id = createdProductDto.ProductID }, createdProductDto);
             }
             catch (ArgumentException ex)
             {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi tạo sản phẩm: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
             }
         }
 
-        // API: PUT api/Products/{id}
+        // API: PUT api/Products/{id} (ĐÃ NÂNG CẤP)
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutProduct(string id, Product product)
+        public async Task<IActionResult> PutProduct(string id, UpdateProductDto updateDto)
         {
             _logger.LogInformation("Yêu cầu cập nhật sản phẩm với ID: {ProductID}", id);
-            if (id != product.ProductID)
+            
+            var product = await _context.Products.FindAsync(id);
+            if (product == null)
             {
-                return BadRequest();
+                return NotFound();
             }
+
+            _mapper.Map(updateDto, product);
 
             try
             {
                 var success = await _productService.UpdateProductAsync(id, product);
+                if (!success) return NotFound();
 
-                if (!success)
-                {
-                    _logger.LogWarning("Không tìm thấy sản phẩm để cập nhật với ID: {ProductID}", id);
-                    return NotFound();
-                }
-
-                _logger.LogInformation("Đã cập nhật sản phẩm với ID: {ProductID}", id);
                 return NoContent();
             }
             catch (ArgumentException ex)
             {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật sản phẩm: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
-            }
-            catch (DbUpdateConcurrencyException) // Vẫn bắt riêng lỗi này ở Controller
-            {
-                if (!ProductExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
             }
         }
 

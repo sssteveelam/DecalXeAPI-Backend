@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Threading.Tasks;
+using AutoMapper;
 
 namespace DecalXeAPI.Controllers
 {
@@ -15,10 +16,12 @@ namespace DecalXeAPI.Controllers
     public class TechLaborPricesController : ControllerBase
     {
         private readonly ITechLaborPriceService _priceService;
+        private readonly IMapper _mapper;
 
-        public TechLaborPricesController(ITechLaborPriceService priceService)
+        public TechLaborPricesController(ITechLaborPriceService priceService, IMapper mapper)
         {
             _priceService = priceService;
+            _mapper = mapper;
         }
 
         [HttpGet]
@@ -37,9 +40,11 @@ namespace DecalXeAPI.Controllers
             return Ok(price);
         }
 
+        // API: POST /api/TechLaborPrices (ĐÃ NÂNG CẤP)
         [HttpPost]
-        public async Task<IActionResult> Create(TechLaborPrice techLaborPrice)
+        public async Task<IActionResult> Create(CreateTechLaborPriceDto createDto)
         {
+            var techLaborPrice = _mapper.Map<TechLaborPrice>(createDto);
             try
             {
                 var createdPrice = await _priceService.CreateAsync(techLaborPrice);
@@ -51,10 +56,12 @@ namespace DecalXeAPI.Controllers
             }
         }
 
+        // API: PUT /api/TechLaborPrices/{...} (ĐÃ NÂNG CẤP)
         [HttpPut("{serviceId}/{vehicleModelId}")]
-        public async Task<IActionResult> Update(string serviceId, string vehicleModelId, [FromBody] decimal newPrice)
+        public async Task<IActionResult> Update(string serviceId, string vehicleModelId, UpdateTechLaborPriceDto updateDto)
         {
-            var updatedPrice = await _priceService.UpdateAsync(serviceId, vehicleModelId, newPrice);
+            // Logic cập nhật giờ sẽ chỉ nhận giá mới, an toàn hơn
+            var updatedPrice = await _priceService.UpdateAsync(serviceId, vehicleModelId, updateDto.LaborPrice);
             if (updatedPrice == null) return NotFound();
             return Ok(updatedPrice);
         }

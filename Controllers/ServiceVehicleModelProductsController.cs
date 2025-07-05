@@ -6,6 +6,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Threading.Tasks;
+using DecalXeAPI.Data;
+using AutoMapper;
+
 
 namespace DecalXeAPI.Controllers
 {
@@ -15,10 +18,11 @@ namespace DecalXeAPI.Controllers
     public class ServiceVehicleModelProductsController : ControllerBase
     {
         private readonly IServiceVehicleModelProductService _linkService;
-
-        public ServiceVehicleModelProductsController(IServiceVehicleModelProductService linkService)
+        private readonly IMapper _mapper;
+        public ServiceVehicleModelProductsController(IServiceVehicleModelProductService linkService, IMapper mapper)
         {
             _linkService = linkService;
+            _mapper = mapper;
         }
 
         [HttpGet]
@@ -37,9 +41,11 @@ namespace DecalXeAPI.Controllers
             return Ok(link);
         }
 
+        // API: POST /api/ServiceVehicleModelProducts (ĐÃ NÂNG CẤP)
         [HttpPost]
-        public async Task<IActionResult> Create(ServiceVehicleModelProduct link)
+        public async Task<IActionResult> Create(CreateServiceVehicleModelProductDto createDto)
         {
+            var link = _mapper.Map<ServiceVehicleModelProduct>(createDto);
             try
             {
                 var createdLink = await _linkService.CreateAsync(link);
@@ -51,11 +57,12 @@ namespace DecalXeAPI.Controllers
             }
         }
 
+        // API: PUT /api/ServiceVehicleModelProducts/{...} (ĐÃ NÂNG CẤP)
         [HttpPut("{serviceId}/{vehicleModelId}/{productId}")]
-        public async Task<IActionResult> Update(string serviceId, string vehicleModelId, string productId, [FromBody] int newQuantity)
+        public async Task<IActionResult> Update(string serviceId, string vehicleModelId, string productId, UpdateServiceVehicleModelProductDto updateDto)
         {
-            var updatedLink = await _linkService.UpdateQuantityAsync(serviceId, vehicleModelId, productId, newQuantity);
-            if(updatedLink == null) return NotFound();
+            var updatedLink = await _linkService.UpdateQuantityAsync(serviceId, vehicleModelId, productId, updateDto.Quantity);
+            if (updatedLink == null) return NotFound();
             return Ok(updatedLink);
         }
 

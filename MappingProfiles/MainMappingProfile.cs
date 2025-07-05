@@ -22,7 +22,37 @@ namespace DecalXeAPI.MappingProfiles
             CreateMap<UpdateDecalServiceDto, DecalService>();
             CreateMap<CreateDecalTemplateDto, DecalTemplate>();
             CreateMap<UpdateDecalTemplateDto, DecalTemplate>();
-
+            CreateMap<CreateDecalTypeDto, DecalType>();
+            CreateMap<UpdateDecalTypeDto, DecalType>();            
+            CreateMap<CreateDepositDto, Deposit>();
+            CreateMap<CreateDesignDto, Design>();
+            CreateMap<UpdateDesignDto, Design>();            
+            CreateMap<CreateDesignWorkOrderDto, DesignWorkOrder>();
+            CreateMap<UpdateDesignWorkOrderDto, DesignWorkOrder>();
+            CreateMap<CreateEmployeeDto, Employee>();
+            CreateMap<UpdateEmployeeDto, Employee>();
+            CreateMap<CreateFeedbackDto, Feedback>();
+            CreateMap<UpdateFeedbackDto, Feedback>();
+            CreateMap<CreateOrderDetailDto, OrderDetail>();
+            CreateMap<UpdateOrderDetailDto, OrderDetail>();
+            CreateMap<CreateOrderDto, Order>();
+            CreateMap<UpdateOrderDto, Order>();
+            CreateMap<CreatePaymentDto, Payment>();
+            CreateMap<UpdatePaymentDto, Payment>();
+            CreateMap<CreatePrintingPriceDetailDto, PrintingPriceDetail>();
+            CreateMap<UpdatePrintingPriceDetailDto, PrintingPriceDetail>();
+            CreateMap<CreateProductDto, Product>();
+            CreateMap<UpdateProductDto, Product>();
+            CreateMap<CreateStoreDto, Store>();
+            CreateMap<UpdateStoreDto, Store>();
+            CreateMap<CreateTechLaborPriceDto, TechLaborPrice>();
+            CreateMap<UpdateTechLaborPriceDto, TechLaborPrice>();
+            CreateMap<CreateServiceVehicleModelProductDto, ServiceVehicleModelProduct>();
+            CreateMap<UpdateServiceVehicleModelProductDto, ServiceVehicleModelProduct>();
+            CreateMap<CreateVehicleModelDto, VehicleModel>();
+            CreateMap<UpdateVehicleModelDto, VehicleModel>();
+            CreateMap<CreateWarrantyDto, Warranty>();
+            CreateMap<UpdateWarrantyDto, Warranty>();            
             // DecalXeAPI/MappingProfiles/MainMappingProfile.cs
             CreateMap<Product, ProductDto>()
                 .ForMember(dest => dest.Category, opt => opt.MapFrom(src => src.Category != null ? src.Category.CategoryName : string.Empty));

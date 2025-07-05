@@ -6,7 +6,8 @@ using DecalXeAPI.Services.Interfaces;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-
+using DecalXeAPI.Data;
+using AutoMapper;   
 namespace DecalXeAPI.Controllers
 {
     [Route("api/[controller]")]
@@ -14,11 +15,15 @@ namespace DecalXeAPI.Controllers
     public class VehicleModelsController : ControllerBase
     {
         private readonly IVehicleModelService _modelService;
-
-        public VehicleModelsController(IVehicleModelService modelService)
+        private readonly IMapper _mapper;
+        private readonly ApplicationDbContext _context; // Cần cho Put
+        public VehicleModelsController(IVehicleModelService modelService, IMapper mapper, ApplicationDbContext context )
         {
             _modelService = modelService;
+            _mapper = mapper;
+            _context = context; // Cần cho Put
         }
+        
 
         // GET: api/VehicleModels
         [HttpGet]
@@ -43,10 +48,12 @@ namespace DecalXeAPI.Controllers
         }
 
         // POST: api/VehicleModels
+        // API: POST api/VehicleModels (ĐÃ NÂNG CẤP)
         [HttpPost]
         [Authorize(Roles = "Admin,Manager")]
-        public async Task<ActionResult<VehicleModelDto>> PostVehicleModel(VehicleModel model)
+        public async Task<ActionResult<VehicleModelDto>> PostVehicleModel(CreateVehicleModelDto createDto)
         {
+            var model = _mapper.Map<VehicleModel>(createDto);
             var (createdModelDto, errorMessage) = await _modelService.CreateModelAsync(model);
             if (createdModelDto == null)
             {
@@ -55,19 +62,22 @@ namespace DecalXeAPI.Controllers
             return CreatedAtAction(nameof(GetVehicleModel), new { id = createdModelDto.ModelID }, createdModelDto);
         }
 
-        // PUT: api/VehicleModels/5
+        // API: PUT api/VehicleModels/{id} (ĐÃ NÂNG CẤP)
         [HttpPut("{id}")]
         [Authorize(Roles = "Admin,Manager")]
-        public async Task<IActionResult> PutVehicleModel(string id, VehicleModel model)
+        public async Task<IActionResult> PutVehicleModel(string id, UpdateVehicleModelDto updateDto)
         {
-            if (id != model.ModelID)
+            var model = await _context.VehicleModels.FindAsync(id);
+            if (model == null)
             {
-                return BadRequest("ID không khớp.");
+                return NotFound();
             }
+            
+            _mapper.Map(updateDto, model);
+
             var (success, errorMessage) = await _modelService.UpdateModelAsync(id, model);
             if (!success)
             {
-                // Nếu có thông báo lỗi cụ thể thì trả về BadRequest, ngược lại là NotFound
                 if (!string.IsNullOrEmpty(errorMessage))
                 {
                     return BadRequest(errorMessage);

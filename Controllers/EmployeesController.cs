@@ -57,85 +57,65 @@ namespace DecalXeAPI.Controllers
             return Ok(employeeDto);
         }
 
-        // API: POST api/Employees
+        // API: POST api/Employees (ĐÃ NÂNG CẤP)
         [HttpPost]
         [Authorize(Roles = "Admin,Manager")]
-        public async Task<ActionResult<EmployeeDto>> PostEmployee(Employee employee) // Vẫn nhận Employee Model
+        public async Task<ActionResult<EmployeeDto>> PostEmployee(CreateEmployeeDto createDto)
         {
-            _logger.LogInformation("Yêu cầu tạo nhân viên mới: {FirstName} {LastName}", employee.FirstName, employee.LastName);
+            _logger.LogInformation("Yêu cầu tạo nhân viên mới: {FirstName} {LastName}", createDto.FirstName, createDto.LastName);
 
-            // --- KIỂM TRA FKs CHÍNH TRƯỚC KHI GỬI VÀO SERVICE ---
-            if (!string.IsNullOrEmpty(employee.StoreID) && !StoreExists(employee.StoreID))
+            if (!string.IsNullOrEmpty(createDto.StoreID) && !StoreExists(createDto.StoreID))
             {
                 return BadRequest("StoreID không tồn tại.");
             }
-            if (!string.IsNullOrEmpty(employee.AccountID) && !AccountExists(employee.AccountID))
+            if (!string.IsNullOrEmpty(createDto.AccountID) && !AccountExists(createDto.AccountID))
             {
                 return BadRequest("AccountID không tồn tại.");
             }
+
+            var employee = _mapper.Map<Employee>(createDto);
 
             try
             {
                 var createdEmployeeDto = await _employeeService.CreateEmployeeAsync(employee);
-                _logger.LogInformation("Đã tạo nhân viên mới với ID: {EmployeeID}", createdEmployeeDto.EmployeeID);
                 return CreatedAtAction(nameof(GetEmployee), new { id = createdEmployeeDto.EmployeeID }, createdEmployeeDto);
             }
-            catch (ArgumentException ex) // Bắt lỗi từ Service nếu có (ví dụ: username trùng lặp)
+            catch (ArgumentException ex)
             {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi tạo nhân viên: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
             }
         }
 
-        // API: PUT api/Employees/{id}
+        // API: PUT api/Employees/{id} (ĐÃ NÂNG CẤP)
         [HttpPut("{id}")]
         [Authorize(Roles = "Admin,Manager")]
-        public async Task<IActionResult> PutEmployee(string id, Employee employee)
+        public async Task<IActionResult> PutEmployee(string id, UpdateEmployeeDto updateDto)
         {
             _logger.LogInformation("Yêu cầu cập nhật nhân viên với ID: {EmployeeID}", id);
-            if (id != employee.EmployeeID)
-            {
-                return BadRequest();
-            }
-
-            // Kiểm tra FKs chính
-            if (!string.IsNullOrEmpty(employee.StoreID) && !StoreExists(employee.StoreID))
+            
+            if (!StoreExists(updateDto.StoreID))
             {
                 return BadRequest("StoreID không tồn tại.");
             }
-            if (!string.IsNullOrEmpty(employee.AccountID) && !AccountExists(employee.AccountID))
+
+            var employee = await _context.Employees.FindAsync(id);
+            if (employee == null)
             {
-                return BadRequest("AccountID không tồn tại.");
+                return NotFound();
             }
+
+            _mapper.Map(updateDto, employee);
 
             try
             {
                 var success = await _employeeService.UpdateEmployeeAsync(id, employee);
+                if (!success) return NotFound();
 
-                if (!success)
-                {
-                    _logger.LogWarning("Không tìm thấy nhân viên để cập nhật với ID: {EmployeeID}", id);
-                    return NotFound();
-                }
-
-                _logger.LogInformation("Đã cập nhật nhân viên với ID: {EmployeeID}", id);
                 return NoContent();
             }
             catch (ArgumentException ex)
             {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật nhân viên: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!EmployeeExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
             }
         }
 

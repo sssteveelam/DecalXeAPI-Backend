@@ -60,103 +60,63 @@ namespace DecalXeAPI.Controllers
             return Ok(designCommentDto);
         }
 
-        // API: POST api/DesignComments
-        // Customer, Designer, Sales (người liên quan đến Order/Design) có thể gửi comment
+        // API: POST /api/DesignComments (ĐÃ CHUẨN HÓA)
         [HttpPost]
-        [Authorize(Roles = "Customer,Designer,Sales,Admin,Manager")] // Cho phép các role liên quan gửi comment
-        public async Task<ActionResult<DesignCommentDto>> PostDesignComment(CreateDesignCommentDto createDto) // Bước 1: Nhận DTO từ client
+        [Authorize(Roles = "Customer,Designer,Sales,Admin,Manager")]
+        public async Task<ActionResult<DesignCommentDto>> PostDesignComment(CreateDesignCommentDto createDto)
         {
-            // ---- BƯỚC 2: DÙNG AUTOMAPPER ĐỂ "DỊCH" TỪ DTO SANG MODEL ----
-            // Đây là bước quan trọng nhất để sửa lỗi "cannot convert"
             var designComment = _mapper.Map<DesignComment>(createDto);
-            // -----------------------------------------------------------
 
-            _logger.LogInformation("Yêu cầu tạo bình luận thiết kế mới cho DesignID: {DesignID}, SenderAccountID: {SenderAccountID}",
-                                    designComment.DesignID, designComment.SenderAccountID);
+            _logger.LogInformation("Yêu cầu tạo bình luận mới cho DesignID: {DesignID}", designComment.DesignID);
 
-            // --- KIỂM TRA FKs CHÍNH TRƯỚC KHI GỬI VÀO SERVICE (Giữ nguyên logic của đệ) ---
-            if (!string.IsNullOrEmpty(designComment.DesignID) && !await _designCommentService.DesignExistsAsync(designComment.DesignID))
-            {
-                return BadRequest("DesignID không tồn tại.");
-            }
-            if (!string.IsNullOrEmpty(designComment.SenderAccountID) && !await _designCommentService.AccountExistsAsync(designComment.SenderAccountID))
-            {
-                return BadRequest("SenderAccountID không tồn tại.");
-            }
-            if (!string.IsNullOrEmpty(designComment.ParentCommentID) && !await _designCommentService.DesignCommentExistsAsync(designComment.ParentCommentID))
-            {
-                return BadRequest("ParentCommentID không tồn tại.");
-            }
-
-            // Logic kiểm tra người gửi comment có phải chính tài khoản của họ không (nếu là Customer)
             var currentAccountID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (User.IsInRole("Customer") && designComment.SenderAccountID != currentAccountID)
             {
-                _logger.LogWarning("Tài khoản Customer {CurrentAccountID} cố gắng gửi bình luận bằng tài khoản của người khác: {SenderAccountID}.", currentAccountID, designComment.SenderAccountID);
                 return Forbid("Bạn chỉ có thể gửi bình luận bằng tài khoản của chính mình.");
             }
 
             try
             {
-                // Bước 3: Đưa đối tượng Model đã được dịch cho Service xử lý
-                var createdDesignCommentDto = await _designCommentService.CreateDesignCommentAsync(designComment);
-                _logger.LogInformation("Đã tạo bình luận thiết kế mới với ID: {CommentID}", createdDesignCommentDto.CommentID);
-                return CreatedAtAction(nameof(GetDesignComment), new { id = createdDesignCommentDto.CommentID }, createdDesignCommentDto);
+                var createdDto = await _designCommentService.CreateDesignCommentAsync(designComment);
+                return CreatedAtAction(nameof(GetDesignComment), new { id = createdDto.CommentID }, createdDto);
             }
-            catch (ArgumentException ex) // Bắt lỗi từ Service nếu FK không hợp lệ
+            catch (ArgumentException ex)
             {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi tạo bình luận thiết kế: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
             }
         }
 
-        // API: PUT api/DesignComments/{id}
+        // API: PUT /api/DesignComments/{id} (ĐÃ CHUẨN HÓA)
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin,Manager,Designer,Sales")] // Chỉ các role này có quyền cập nhật
+        [Authorize(Roles = "Admin,Manager,Designer,Sales")]
         public async Task<IActionResult> PutDesignComment(string id, UpdateDesignCommentDto updateDto)
         {
-            _logger.LogInformation("Yêu cầu cập nhật bình luận thiết kế với ID: {CommentID}", id);
+            _logger.LogInformation("Yêu cầu cập nhật bình luận với ID: {CommentID}", id);
 
-            // Bước 1: Tìm bình luận gốc trong database
             var existingComment = await _context.DesignComments.FindAsync(id);
-
             if (existingComment == null)
             {
-                _logger.LogWarning("Không tìm thấy bình luận để cập nhật với ID: {CommentID}", id);
                 return NotFound();
             }
 
-            // Bước 2: (Tùy chọn nhưng rất quan trọng) Kiểm tra quyền sở hữu
-            // Logic: Chỉ người tạo ra bình luận hoặc Admin/Manager mới được sửa
             var currentAccountID = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (existingComment.SenderAccountID != currentAccountID && !User.IsInRole("Admin") && !User.IsInRole("Manager"))
             {
-                _logger.LogWarning("Tài khoản {CurrentAccountID} không có quyền sửa bình luận {CommentID} của người khác.", currentAccountID, id);
                 return Forbid("Bạn không có quyền sửa bình luận này.");
             }
 
-            // Bước 3: Cập nhật nội dung từ DTO và gọi Service
-            // Chuyển logic cập nhật vào service để tái sử dụng
+            _mapper.Map(updateDto, existingComment);
+
             try
             {
-                // Ta chỉ cập nhật nội dung bình luận
-                existingComment.CommentText = updateDto.CommentText;
-
-                // Gọi service để cập nhật
                 var success = await _designCommentService.UpdateDesignCommentAsync(id, existingComment);
-
-                if (!success)
-                {
-                    // Trường hợp này hiếm khi xảy ra nếu đã Find ở trên, nhưng vẫn để phòng hờ
-                    return NotFound();
-                }
-
-                _logger.LogInformation("Đã cập nhật bình luận thiết kế với ID: {CommentID}", id);
-                return NoContent(); // Trả về 204 No Content là chuẩn cho một yêu cầu PUT thành công
+                if (!success) return NotFound();
+                
+                return NoContent();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Lỗi không mong muốn khi cập nhật bình luận {CommentID}", id);
+                _logger.LogError(ex, "Lỗi khi cập nhật bình luận {CommentID}", id);
                 return StatusCode(500, "Đã xảy ra lỗi nội bộ.");
             }
         }

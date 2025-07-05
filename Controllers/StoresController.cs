@@ -55,62 +55,46 @@ namespace DecalXeAPI.Controllers
             return Ok(storeDto);
         }
 
-        // API: POST api/Stores
+        // API: POST api/Stores (ĐÃ NÂNG CẤP)
         [HttpPost]
-        public async Task<ActionResult<StoreDto>> PostStore(Store store) // Vẫn nhận Store Model
+        public async Task<ActionResult<StoreDto>> PostStore(CreateStoreDto createDto)
         {
-            _logger.LogInformation("Yêu cầu tạo cửa hàng mới: {StoreName}", store.StoreName);
+            _logger.LogInformation("Yêu cầu tạo cửa hàng mới: {StoreName}", createDto.StoreName);
+            var store = _mapper.Map<Store>(createDto);
             try
             {
                 var createdStoreDto = await _storeService.CreateStoreAsync(store);
-                _logger.LogInformation("Đã tạo cửa hàng mới với ID: {StoreID}", createdStoreDto.StoreID);
                 return CreatedAtAction(nameof(GetStore), new { id = createdStoreDto.StoreID }, createdStoreDto);
             }
             catch (ArgumentException ex)
             {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi tạo cửa hàng: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
             }
         }
 
-        // API: PUT api/Stores/{id}
+        // API: PUT api/Stores/{id} (ĐÃ NÂNG CẤP)
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutStore(string id, Store store)
+        public async Task<IActionResult> PutStore(string id, UpdateStoreDto updateDto)
         {
             _logger.LogInformation("Yêu cầu cập nhật cửa hàng với ID: {StoreID}", id);
-            if (id != store.StoreID)
+            var store = await _context.Stores.FindAsync(id);
+            if (store == null)
             {
-                return BadRequest();
+                return NotFound();
             }
+
+            _mapper.Map(updateDto, store);
 
             try
             {
                 var success = await _storeService.UpdateStoreAsync(id, store);
-
-                if (!success)
-                {
-                    _logger.LogWarning("Không tìm thấy cửa hàng để cập nhật với ID: {StoreID}", id);
-                    return NotFound();
-                }
-
-                _logger.LogInformation("Đã cập nhật cửa hàng với ID: {StoreID}", id);
+                if (!success) return NotFound();
+                
                 return NoContent();
             }
             catch (ArgumentException ex)
             {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật cửa hàng: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!StoreExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
             }
         }
 

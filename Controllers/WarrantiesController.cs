@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 using System;
 using Microsoft.EntityFrameworkCore;
+using AutoMapper;
+using DecalXeAPI.Data;
 
 namespace DecalXeAPI.Controllers
 {
@@ -19,11 +21,15 @@ namespace DecalXeAPI.Controllers
     {
         private readonly IWarrantyService _warrantyService;
         private readonly ILogger<WarrantiesController> _logger;
+        private readonly IMapper _mapper;
+        private readonly ApplicationDbContext _context;
 
-        public WarrantiesController(IWarrantyService warrantyService, ILogger<WarrantiesController> logger)
+        public WarrantiesController(IWarrantyService warrantyService, ILogger<WarrantiesController> logger, IMapper mapper, ApplicationDbContext context)
         {
             _warrantyService = warrantyService;
             _logger = logger;
+            _mapper = mapper;
+            _context = context;
         }
 
         [HttpGet]
@@ -41,10 +47,16 @@ namespace DecalXeAPI.Controllers
             return Ok(warrantyDto);
         }
 
+        // API: POST api/Warranties (ĐÃ NÂNG CẤP)
         [HttpPost]
-        public async Task<ActionResult<WarrantyDto>> PostWarranty(Warranty warranty)
+        public async Task<ActionResult<WarrantyDto>> PostWarranty(CreateWarrantyDto createDto)
         {
-            _logger.LogInformation("Yêu cầu tạo bảo hành mới cho VehicleID: {VehicleID}", warranty.VehicleID);
+            _logger.LogInformation("Yêu cầu tạo bảo hành mới cho VehicleID: {VehicleID}", createDto.VehicleID);
+            
+            var warranty = _mapper.Map<Warranty>(createDto);
+            // Server sẽ tự gán các giá trị mặc định khi tạo
+            warranty.WarrantyStatus = "Active";
+
             try
             {
                 var createdWarrantyDto = await _warrantyService.CreateWarrantyAsync(warranty);
@@ -56,24 +68,28 @@ namespace DecalXeAPI.Controllers
             }
         }
 
+        // API: PUT api/Warranties/{id} (ĐÃ NÂNG CẤP)
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutWarranty(string id, Warranty warranty)
+        public async Task<IActionResult> PutWarranty(string id, UpdateWarrantyDto updateDto)
         {
-            if (id != warranty.WarrantyID) return BadRequest();
-
+            var warranty = await _context.Warranties.FindAsync(id);
+            if (warranty == null)
+            {
+                return NotFound();
+            }
+            
+            _mapper.Map(updateDto, warranty);
+            
             try
             {
                 var success = await _warrantyService.UpdateWarrantyAsync(id, warranty);
                 if (!success) return NotFound();
+                
                 return NoContent();
             }
             catch (ArgumentException ex)
             {
                 return BadRequest(ex.Message);
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                return Conflict("Lỗi xung đột dữ liệu, vui lòng thử lại.");
             }
         }
 

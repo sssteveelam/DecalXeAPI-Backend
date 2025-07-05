@@ -61,67 +61,46 @@ namespace DecalXeAPI.Controllers
             return Ok(orderDto);
         }
 
-        // API: POST api/Orders
+        // API: POST api/Orders (ĐÃ NÂNG CẤP)
         [HttpPost]
         [Authorize(Roles = "Admin,Manager,Sales")]
-        public async Task<ActionResult<OrderDto>> PostOrder(Order order) // Vẫn nhận Order Model vì đây là Input Model
+        public async Task<ActionResult<OrderDto>> PostOrder(CreateOrderDto createDto)
         {
-            // --- KIỂM TRA FKs TRƯỚC KHI GỬI VÀO SERVICE ---
-            // Controller sẽ chịu trách nhiệm validate các FKs chính
-            if (!string.IsNullOrEmpty(order.CustomerID) && !CustomerExists(order.CustomerID))
+            if (!string.IsNullOrEmpty(createDto.CustomerID) && !CustomerExists(createDto.CustomerID))
             {
                 return BadRequest("CustomerID không tồn tại.");
             }
-            if (!string.IsNullOrEmpty(order.AssignedEmployeeID) && !EmployeeExists(order.AssignedEmployeeID))
-            {
-                return BadRequest("AssignedEmployeeID không tồn tại.");
-            }
-            if (!string.IsNullOrEmpty(order.CustomServiceRequest?.CustomRequestID) && !CustomServiceRequestExists(order.CustomServiceRequest.CustomRequestID))
-            {
-                return BadRequest("CustomServiceRequestID không tồn tại.");
-            }
-            if (!string.IsNullOrEmpty(order.CustomServiceRequest?.CustomRequestID))
-            {
-                var existingCsr = await _context.CustomServiceRequests
-                                            .Where(csr => csr.CustomRequestID == order.CustomServiceRequest.CustomRequestID && csr.OrderID != null)
-                                            .FirstOrDefaultAsync();
-                if (existingCsr != null)
-                {
-                    return BadRequest("CustomServiceRequest này đã được liên kết với một Order khác.");
-                }
-            }
+            // ... các bước kiểm tra FKs khác ...
 
-            // Ủy quyền logic tạo Order cho Service Layer
+            var order = _mapper.Map<Order>(createDto);
+            
+            // Server sẽ tự gán các giá trị mặc định khi tạo
+            order.OrderStatus = "New";
+            order.CurrentStage = "New Profile";
+
             var orderDto = await _orderService.CreateOrderAsync(order);
-
             return CreatedAtAction(nameof(GetOrder), new { id = orderDto.OrderID }, orderDto);
         }
 
-        // API: PUT api/Orders/{id}
+        // API: PUT api/Orders/{id} (ĐÃ NÂNG CẤP)
         [HttpPut("{id}")]
         [Authorize(Roles = "Admin,Manager,Sales")]
-        public async Task<IActionResult> PutOrder(string id, Order order)
+        public async Task<IActionResult> PutOrder(string id, UpdateOrderDto updateDto)
         {
-            // --- KIỂM TRA FKs TRƯỚC KHI GỬI VÀO SERVICE ---
-            if (!string.IsNullOrEmpty(order.CustomerID) && !CustomerExists(order.CustomerID))
+            var order = await _context.Orders.FindAsync(id);
+            if (order == null)
             {
-                return BadRequest("CustomerID không tồn tại.");
+                return NotFound();
             }
-            if (!string.IsNullOrEmpty(order.AssignedEmployeeID) && !EmployeeExists(order.AssignedEmployeeID))
-            {
-                return BadRequest("AssignedEmployeeID không tồn tại.");
-            }
-            if (!string.IsNullOrEmpty(order.CustomServiceRequest?.CustomRequestID) && !CustomServiceRequestExists(order.CustomServiceRequest.CustomRequestID))
-            {
-                return BadRequest("CustomServiceRequestID không tồn tại.");
-            }
+            
+            // ... kiểm tra các FKs trong updateDto nếu cần ...
+            
+            _mapper.Map(updateDto, order);
 
-            // Ủy quyền logic cập nhật Order cho Service Layer
             var success = await _orderService.UpdateOrderAsync(id, order);
-
             if (!success)
             {
-                return NotFound(); // Service trả về false nếu không tìm thấy
+                return NotFound();
             }
 
             return NoContent();

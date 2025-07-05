@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Threading.Tasks;
+using AutoMapper; // <--- THÊM DÒNG NÀY VÀO
+
 
 namespace DecalXeAPI.Controllers
 {
@@ -15,14 +17,18 @@ namespace DecalXeAPI.Controllers
     [Authorize(Roles = "Admin,Manager,Sales,Accountant")]
     public class DepositsController : ControllerBase
     {
-        private readonly IDepositService _depositService;
+          private readonly IDepositService _depositService;
+        private readonly IMapper _mapper; // Thêm IMapper
         private readonly ILogger<DepositsController> _logger;
 
-        public DepositsController(IDepositService depositService, ILogger<DepositsController> logger)
+        // Tiêm IMapper vào constructor
+        public DepositsController(IDepositService depositService, ILogger<DepositsController> logger, IMapper mapper)
         {
             _depositService = depositService;
             _logger = logger;
+            _mapper = mapper; // Gán giá trị
         }
+        
 
         [HttpGet("order/{orderId}")]
         public async Task<IActionResult> GetDepositsByOrder(string orderId)
@@ -39,9 +45,13 @@ namespace DecalXeAPI.Controllers
             return Ok(deposit);
         }
 
+        // API: POST api/Deposits (ĐÃ NÂNG CẤP)
         [HttpPost]
-        public async Task<IActionResult> CreateDeposit(Deposit deposit)
+        public async Task<IActionResult> CreateDeposit(CreateDepositDto createDto)
         {
+            // Dùng AutoMapper để "dịch" từ DTO sang Model
+            var deposit = _mapper.Map<Deposit>(createDto);
+            
             try
             {
                 var createdDeposit = await _depositService.CreateDepositAsync(deposit);

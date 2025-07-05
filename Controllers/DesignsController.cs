@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using System;
+using AutoMapper; // <--- THÊM DÒNG NÀY VÀO
+using DecalXeAPI.Data; // <--- THÊM DÒNG NÀY ĐỂ BIẾT ApplicationDbContext
 
 namespace DecalXeAPI.Controllers
 {
@@ -16,10 +18,14 @@ namespace DecalXeAPI.Controllers
     public class DesignsController : ControllerBase
     {
         private readonly IDesignService _designService;
+        private readonly IMapper _mapper; // Thêm IMapper
+        private readonly ApplicationDbContext _context;
 
-        public DesignsController(IDesignService designService)
+        public DesignsController(IDesignService designService, IMapper mapper, ApplicationDbContext context)
         {
             _designService = designService;
+            _mapper = mapper;
+            _context = context; 
         }
 
         // GET: api/Designs
@@ -40,10 +46,11 @@ namespace DecalXeAPI.Controllers
             return Ok(design);
         }
 
-        // POST: api/Designs
+        // API: POST api/Designs (ĐÃ NÂNG CẤP)
         [HttpPost]
-        public async Task<ActionResult<DesignDto>> PostDesign(Design design)
+        public async Task<ActionResult<DesignDto>> PostDesign(CreateDesignDto createDto)
         {
+            var design = _mapper.Map<Design>(createDto);
             try
             {
                 var createdDesign = await _designService.CreateDesignAsync(design);
@@ -55,11 +62,21 @@ namespace DecalXeAPI.Controllers
             }
         }
 
-        // PUT: api/Designs/5
+        // API: PUT api/Designs/5 (ĐÃ NÂNG CẤP)
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutDesign(string id, Design design)
+        public async Task<IActionResult> PutDesign(string id, UpdateDesignDto updateDto)
         {
-            if (id != design.DesignID) return BadRequest();
+            // Cần inject ApplicationDbContext vào controller này để dùng FindAsync
+            // private readonly ApplicationDbContext _context;
+            // public DesignsController(IDesignService designService, ApplicationDbContext context, IMapper mapper) ...
+
+            var design = await _context.Designs.FindAsync(id); // Giả sử đã inject _context
+            if (design == null)
+            {
+                return NotFound();
+            }
+            
+            _mapper.Map(updateDto, design);
 
             try
             {

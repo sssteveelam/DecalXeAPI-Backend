@@ -55,75 +55,49 @@ namespace DecalXeAPI.Controllers
             return Ok(detailDto);
         }
 
-        // API: POST api/PrintingPriceDetails
+        // API: POST api/PrintingPriceDetails (ĐÃ NÂNG CẤP)
         [HttpPost]
-        public async Task<ActionResult<PrintingPriceDetailDto>> PostPrintingPriceDetail(PrintingPriceDetail printingPriceDetail)
+        public async Task<ActionResult<PrintingPriceDetailDto>> PostPrintingPriceDetail(CreatePrintingPriceDetailDto createDto)
         {
-            _logger.LogInformation("Yêu cầu tạo chi tiết giá in mới cho ServiceID: {ServiceID}", printingPriceDetail.ServiceID);
+            _logger.LogInformation("Yêu cầu tạo chi tiết giá in mới cho ServiceID: {ServiceID}", createDto.ServiceID);
 
-            // Kiểm tra DecalServiceExists (FK) trước khi gọi Service
-            if (!string.IsNullOrEmpty(printingPriceDetail.ServiceID) && !DecalServiceExists(printingPriceDetail.ServiceID))
-            {
-                return BadRequest("ServiceID không tồn tại.");
-            }
+            var printingPriceDetail = _mapper.Map<PrintingPriceDetail>(createDto);
 
             try
             {
                 var createdDto = await _printingPriceDetailService.CreatePrintingPriceDetailAsync(printingPriceDetail);
-                _logger.LogInformation("Đã tạo chi tiết giá in mới với ServiceID: {ServiceID}", createdDto.ServiceID);
                 return CreatedAtAction(nameof(GetPrintingPriceDetail), new { serviceId = createdDto.ServiceID }, createdDto);
             }
             catch (ArgumentException ex)
             {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi tạo chi tiết giá in: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
             }
         }
 
-        // API: PUT api/PrintingPriceDetails/{serviceId}
+        // API: PUT api/PrintingPriceDetails/{serviceId} (ĐÃ NÂNG CẤP)
         [HttpPut("{serviceId}")]
-        public async Task<IActionResult> PutPrintingPriceDetail(string serviceId, PrintingPriceDetail printingPriceDetail)
+        public async Task<IActionResult> PutPrintingPriceDetail(string serviceId, UpdatePrintingPriceDetailDto updateDto)
         {
             _logger.LogInformation("Yêu cầu cập nhật chi tiết giá in với ServiceID: {ServiceID}", serviceId);
-            if (serviceId != printingPriceDetail.ServiceID)
+
+            var printingPriceDetail = await _context.PrintingPriceDetails.FindAsync(serviceId);
+            if (printingPriceDetail == null)
             {
-                return BadRequest();
+                return NotFound();
             }
 
-            // Kiểm tra DecalServiceExists (FK) trước khi gọi Service
-            if (!string.IsNullOrEmpty(printingPriceDetail.ServiceID) && !DecalServiceExists(printingPriceDetail.ServiceID))
-            {
-                return BadRequest("ServiceID không tồn tại.");
-            }
+            _mapper.Map(updateDto, printingPriceDetail);
 
             try
             {
                 var success = await _printingPriceDetailService.UpdatePrintingPriceDetailAsync(serviceId, printingPriceDetail);
+                if (!success) return NotFound();
 
-                if (!success)
-                {
-                    _logger.LogWarning("Không tìm thấy chi tiết giá in để cập nhật với ServiceID: {ServiceID}", serviceId);
-                    return NotFound();
-                }
-
-                _logger.LogInformation("Đã cập nhật chi tiết giá in với ServiceID: {ServiceID}", serviceId);
                 return NoContent();
             }
             catch (ArgumentException ex)
             {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật chi tiết giá in: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!PrintingPriceDetailExists(serviceId))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
             }
         }
 

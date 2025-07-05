@@ -55,11 +55,14 @@ namespace DecalXeAPI.Controllers
             return Ok(decalTypeDto);
         }
 
-        // API: POST api/DecalTypes
+        // API: POST api/DecalTypes (ĐÃ NÂNG CẤP)
         [HttpPost]
-        public async Task<ActionResult<DecalTypeDto>> PostDecalType(DecalType decalType) // Vẫn nhận Model
+        public async Task<ActionResult<DecalTypeDto>> PostDecalType(CreateDecalTypeDto createDto)
         {
-            _logger.LogInformation("Yêu cầu tạo loại decal mới: {DecalTypeName}", decalType.DecalTypeName);
+            _logger.LogInformation("Yêu cầu tạo loại decal mới: {DecalTypeName}", createDto.DecalTypeName);
+            
+            var decalType = _mapper.Map<DecalType>(createDto);
+
             try
             {
                 var createdDecalTypeDto = await _decalTypeService.CreateDecalTypeAsync(decalType);
@@ -68,37 +71,34 @@ namespace DecalXeAPI.Controllers
             }
             catch (ArgumentException ex)
             {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi tạo loại decal: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
             }
         }
 
-        // API: PUT api/DecalTypes/{id}
+        // API: PUT api/DecalTypes/{id} (ĐÃ NÂNG CẤP)
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutDecalType(string id, DecalType decalType)
+        public async Task<IActionResult> PutDecalType(string id, UpdateDecalTypeDto updateDto)
         {
             _logger.LogInformation("Yêu cầu cập nhật loại decal với ID: {DecalTypeID}", id);
-            if (id != decalType.DecalTypeID)
+            
+            var decalType = await _context.DecalTypes.FindAsync(id);
+            if (decalType == null)
             {
-                return BadRequest();
+                return NotFound();
             }
+
+            _mapper.Map(updateDto, decalType);
 
             try
             {
                 var success = await _decalTypeService.UpdateDecalTypeAsync(id, decalType);
-
-                if (!success)
-                {
-                    _logger.LogWarning("Không tìm thấy loại decal để cập nhật với ID: {DecalTypeID}", id);
-                    return NotFound();
-                }
+                if (!success) return NotFound();
 
                 _logger.LogInformation("Đã cập nhật loại decal với ID: {DecalTypeID}", id);
                 return NoContent();
             }
             catch (ArgumentException ex)
             {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật loại decal: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
             }
             catch (DbUpdateConcurrencyException)

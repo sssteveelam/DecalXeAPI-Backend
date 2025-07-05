@@ -64,95 +64,62 @@ namespace DecalXeAPI.Controllers
             return Ok(feedbackDto);
         }
 
-        // API: POST api/Feedbacks
+        // API: POST api/Feedbacks (ĐÃ NÂNG CẤP)
         [HttpPost]
-        [Authorize(Roles = "Customer")] // Chỉ Customer được phép gửi feedback
-        public async Task<ActionResult<FeedbackDto>> PostFeedback(Feedback feedback) // Vẫn nhận Model
+        [Authorize(Roles = "Customer")]
+        public async Task<ActionResult<FeedbackDto>> PostFeedback(CreateFeedbackDto createDto)
         {
-            _logger.LogInformation("Yêu cầu tạo phản hồi mới cho OrderID: {OrderID}, CustomerID: {CustomerID}", feedback.OrderID, feedback.CustomerID);
-
-            // --- KIỂM TRA FKs CHÍNH TRƯỚC KHI GỬI VÀO SERVICE ---
-            if (!string.IsNullOrEmpty(feedback.OrderID) && !OrderExists(feedback.OrderID))
-            {
-                return BadRequest("OrderID không tồn tại.");
-            }
-            if (!string.IsNullOrEmpty(feedback.CustomerID) && !CustomerExists(feedback.CustomerID))
-            {
-                return BadRequest("CustomerID không tồn tại.");
-            }
+            _logger.LogInformation("Yêu cầu tạo phản hồi mới cho OrderID: {OrderID}, CustomerID: {CustomerID}", createDto.OrderID, createDto.CustomerID);
 
             // Logic: Đảm bảo Customer chỉ gửi feedback cho chính mình (nếu muốn)
             // var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            // if (User.IsInRole("Customer") && feedback.CustomerID != currentUserId)
+            // var customer = await _context.Customers.FirstOrDefaultAsync(c => c.AccountID == currentUserId);
+            // if (customer == null || customer.CustomerID != createDto.CustomerID)
             // {
             //     return Forbid("Bạn chỉ có thể gửi phản hồi cho chính mình.");
             // }
-
+            
+            var feedback = _mapper.Map<Feedback>(createDto);
 
             try
             {
                 var createdFeedbackDto = await _feedbackService.CreateFeedbackAsync(feedback);
-                _logger.LogInformation("Đã tạo phản hồi mới với ID: {FeedbackID}", createdFeedbackDto.FeedbackID);
                 return CreatedAtAction(nameof(GetFeedback), new { id = createdFeedbackDto.FeedbackID }, createdFeedbackDto);
             }
             catch (ArgumentException ex)
             {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi tạo phản hồi: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
             }
         }
 
-        // API: PUT api/Feedbacks/{id}
+        // API: PUT api/Feedbacks/{id} (ĐÃ NÂNG CẤP)
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin,Manager")] // Chỉ Admin, Manager có thể cập nhật
-        public async Task<IActionResult> PutFeedback(string id, Feedback feedback)
+        [Authorize(Roles = "Admin,Manager")]
+        public async Task<IActionResult> PutFeedback(string id, UpdateFeedbackDto updateDto)
         {
             _logger.LogInformation("Yêu cầu cập nhật phản hồi với ID: {FeedbackID}", id);
-            if (id != feedback.FeedbackID)
+            
+            var feedback = await _context.Feedbacks.FindAsync(id);
+            if (feedback == null)
             {
-                return BadRequest();
+                return NotFound();
             }
-
-            // Kiểm tra FKs chính
-            if (!string.IsNullOrEmpty(feedback.OrderID) && !OrderExists(feedback.OrderID))
-            {
-                return BadRequest("OrderID không tồn tại.");
-            }
-            if (!string.IsNullOrEmpty(feedback.CustomerID) && !CustomerExists(feedback.CustomerID))
-            {
-                return BadRequest("CustomerID không tồn tại.");
-            }
+            
+            _mapper.Map(updateDto, feedback);
 
             try
             {
                 var success = await _feedbackService.UpdateFeedbackAsync(id, feedback);
-
-                if (!success)
-                {
-                    _logger.LogWarning("Không tìm thấy phản hồi để cập nhật với ID: {FeedbackID}", id);
-                    return NotFound();
-                }
-
-                _logger.LogInformation("Đã cập nhật phản hồi với ID: {FeedbackID}", id);
+                if (!success) return NotFound();
+                
                 return NoContent();
             }
             catch (ArgumentException ex)
             {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật phản hồi: {ErrorMessage}", ex.Message);
                 return BadRequest(ex.Message);
             }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!FeedbackExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
         }
+
 
         // API: DELETE api/Feedbacks/{id}
         [HttpDelete("{id}")]
