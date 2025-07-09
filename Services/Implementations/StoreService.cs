@@ -91,6 +91,7 @@ namespace DecalXeAPI.Services.Implementations
             }
         }
 
+        // Trong file: DecalXeAPI/Services/Implementations/StoreService.cs
         public async Task<bool> DeleteStoreAsync(string id)
         {
             _logger.LogInformation("Yêu cầu xóa cửa hàng với ID: {StoreID}", id);
@@ -100,6 +101,24 @@ namespace DecalXeAPI.Services.Implementations
                 _logger.LogWarning("Không tìm thấy cửa hàng để xóa với ID: {StoreID}", id);
                 return false;
             }
+
+            // --- LOGIC MỚI: KIỂM TRA ĐƠN HÀNG ĐANG HOẠT ĐỘNG ---
+            // Kiểm tra xem có bất kỳ nhân viên nào trong cửa hàng này
+            // đang được giao một đơn hàng chưa hoàn thành hoặc chưa bị hủy không.
+            bool hasActiveOrders = await _context.Orders
+                .AnyAsync(order => 
+                    order.AssignedEmployee != null &&
+                    order.AssignedEmployee.StoreID == id &&
+                    order.OrderStatus != "Completed" &&
+                    order.OrderStatus != "Cancelled"
+                );
+
+            if (hasActiveOrders)
+            {
+                _logger.LogWarning("Không thể xóa cửa hàng {StoreID} vì vẫn còn các đơn hàng đang hoạt động.", id);
+                throw new InvalidOperationException("Không thể xóa cửa hàng này vì vẫn còn các đơn hàng đang hoạt động được xử lý tại đây.");
+            }
+            // --- KẾT THÚC LOGIC MỚI ---
 
             _context.Stores.Remove(store);
             await _context.SaveChangesAsync();

@@ -98,20 +98,30 @@ namespace DecalXeAPI.Controllers
             }
         }
 
-        // API: DELETE api/Stores/{id}
+        // Trong file: DecalXeAPI/Controllers/StoresController.cs
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin,Manager")]
         public async Task<IActionResult> DeleteStore(string id)
         {
             _logger.LogInformation("Yêu cầu xóa cửa hàng với ID: {StoreID}", id);
-            var success = await _storeService.DeleteStoreAsync(id);
-
-            if (!success)
+            try
             {
-                _logger.LogWarning("Không tìm thấy cửa hàng để xóa với ID: {StoreID}", id);
-                return NotFound();
-            }
+                var success = await _storeService.DeleteStoreAsync(id);
 
-            return NoContent();
+                if (!success)
+                {
+                    _logger.LogWarning("Không tìm thấy cửa hàng để xóa với ID: {StoreID}", id);
+                    return NotFound();
+                }
+
+                return NoContent();
+            }
+            catch (InvalidOperationException ex) // Bắt lỗi nghiệp vụ cụ thể từ Service
+            {
+                _logger.LogError(ex, "Lỗi nghiệp vụ khi xóa cửa hàng {StoreID}: {ErrorMessage}", id, ex.Message);
+                // Trả về lỗi 400 Bad Request với thông báo từ Service
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         // --- HÀM HỖ TRỢ (PRIVATE): KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (Vẫn giữ ở Controller để kiểm tra FKs) ---
