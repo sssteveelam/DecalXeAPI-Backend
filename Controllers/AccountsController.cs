@@ -129,20 +129,30 @@ namespace DecalXeAPI.Controllers
             }
         }
 
-        // API: DELETE api/Accounts/{id}
+        // Trong file: DecalXeAPI/Controllers/AccountsController.cs
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin,Manager")] // Quyền cho RolesController
         public async Task<IActionResult> DeleteAccount(string id)
         {
             _logger.LogInformation("Yêu cầu xóa tài khoản với ID: {AccountID}", id);
-            var success = await _accountService.DeleteAccountAsync(id);
-
-            if (!success)
+            try
             {
-                _logger.LogWarning("Không tìm thấy tài khoản để xóa với ID: {AccountID}", id);
-                return NotFound();
-            }
+                var success = await _accountService.DeleteAccountAsync(id);
 
-            return NoContent();
+                if (!success)
+                {
+                    _logger.LogWarning("Không tìm thấy tài khoản để xóa với ID: {AccountID}", id);
+                    return NotFound();
+                }
+
+                return NoContent();
+            }
+            catch (InvalidOperationException ex) // Bắt lỗi nghiệp vụ cụ thể từ Service
+            {
+                _logger.LogError(ex, "Lỗi nghiệp vụ khi xóa tài khoản {AccountID}: {ErrorMessage}", id, ex.Message);
+                // Trả về lỗi 400 Bad Request với thông báo từ Service
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         // --- HÀM HỖ TRỢ (PRIVATE): KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (Vẫn giữ ở Controller để kiểm tra FKs) ---

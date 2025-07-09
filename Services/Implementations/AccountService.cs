@@ -121,21 +121,61 @@ namespace DecalXeAPI.Services.Implementations
             }
         }
 
+        // Trong file: DecalXeAPI/Services/Implementations/AccountService.cs
         public async Task<bool> DeleteAccountAsync(string id)
         {
             _logger.LogInformation("Yêu cầu xóa tài khoản với ID: {AccountID}", id);
-            var account = await _context.Accounts.FindAsync(id);
+            var account = await _context.Accounts
+                                        .Include(a => a.Employee) // Nạp thông tin Employee liên quan
+                                        .FirstOrDefaultAsync(a => a.AccountID == id);
+
             if (account == null)
             {
                 _logger.LogWarning("Không tìm thấy tài khoản để xóa với ID: {AccountID}", id);
                 return false;
             }
 
+            // --- LOGIC MỚI: KIỂM TRA CÔNG VIỆC DANG DỞ CỦA NHÂN VIÊN ---
+            if (account.Employee != null)
+            {
+                var employeeId = account.Employee.EmployeeID;
+
+                // 1. Kiểm tra các đơn hàng đang hoạt động (chưa hoàn thành hoặc chưa hủy)
+                bool hasActiveOrders = await _context.Orders
+                    .AnyAsync(o => o.AssignedEmployeeID == employeeId && o.OrderStatus != "Completed" && o.OrderStatus != "Cancelled");
+                if (hasActiveOrders)
+                {
+                    _logger.LogWarning("Không thể xóa tài khoản {AccountID} vì nhân viên đang được giao các đơn hàng chưa hoàn thành.", id);
+                    throw new InvalidOperationException("Không thể xóa tài khoản này vì nhân viên đang được giao các đơn hàng chưa hoàn thành.");
+                }
+
+                // 2. Kiểm tra các yêu cầu tùy chỉnh đang hoạt động
+                bool hasActiveServiceRequests = await _context.CustomServiceRequests
+                    .AnyAsync(csr => csr.SalesEmployeeID == employeeId && csr.RequestStatus != "ConvertedToOrder" && csr.RequestStatus != "Cancelled");
+                if (hasActiveServiceRequests)
+                {
+                    _logger.LogWarning("Không thể xóa tài khoản {AccountID} vì nhân viên đang phụ trách các yêu cầu dịch vụ chưa được xử lý.", id);
+                    throw new InvalidOperationException("Không thể xóa tài khoản này vì nhân viên đang phụ trách các yêu cầu dịch vụ chưa được xử lý.");
+                }
+
+                // 3. Kiểm tra các công việc thiết kế đang hoạt động
+                bool hasActiveDesigns = await _context.Designs
+                    .AnyAsync(d => d.DesignerID == employeeId && d.ApprovalStatus != "Approved" && d.ApprovalStatus != "Rejected");
+                if (hasActiveDesigns)
+                {
+                    _logger.LogWarning("Không thể xóa tài khoản {AccountID} vì nhân viên đang có các công việc thiết kế chưa hoàn tất.", id);
+                    throw new InvalidOperationException("Không thể xóa tài khoản này vì nhân viên đang có các công việc thiết kế chưa hoàn tất.");
+                }
+            }
+            // --- KẾT THÚC LOGIC MỚI ---
+            
+            // Logic cũ kiểm tra ràng buộc khóa ngoại vẫn cần thiết cho các trường hợp khác
             if (await _context.Customers.AnyAsync(c => c.AccountID == id) || await _context.Employees.AnyAsync(e => e.AccountID == id) || await _context.DesignComments.AnyAsync(dc => dc.SenderAccountID == id))
             {
-                _logger.LogWarning("Không thể xóa tài khoản {AccountID} vì đang được sử dụng bởi khách hàng, nhân viên hoặc bình luận thiết kế.", id);
-                throw new InvalidOperationException("Không thể xóa tài khoản này vì đang được sử dụng bởi khách hàng, nhân viên hoặc bình luận thiết kế.");
+                _logger.LogWarning("Không thể xóa tài khoản {AccountID} vì có các ràng buộc dữ liệu khác.", id);
+                throw new InvalidOperationException("Không thể xóa tài khoản này vì đang được liên kết với khách hàng, nhân viên hoặc các bình luận.");
             }
+
 
             _context.Accounts.Remove(account);
             await _context.SaveChangesAsync();
