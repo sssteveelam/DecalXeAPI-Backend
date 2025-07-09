@@ -13,5 +13,10 @@ namespace DecalXeAPI.Services.Interfaces
         Task<(VehicleModelDto?, string?)> CreateModelAsync(VehicleModel model);
         Task<(bool, string?)> UpdateModelAsync(string id, VehicleModel model);
         Task<bool> DeleteModelAsync(string id);
+
+        // --- CÁC PHƯƠNG THỨC MỚI ĐỂ QUẢN LÝ DECALTYPE TƯƠNG THÍCH ---
+        Task<(bool Success, string? ErrorMessage)> AssignDecalTypeToVehicleAsync(string modelId, string decalTypeId);
+        Task<(bool Success, string? ErrorMessage)> UnassignDecalTypeFromVehicleAsync(string modelId, string decalTypeId);
+        Task<IEnumerable<DecalTypeDto>> GetCompatibleDecalTypesAsync(string modelId);
     }
 }

@@ -37,5 +37,7 @@ namespace DecalXeAPI.Models
 
         [JsonIgnore]
         public ICollection<VehicleModelDecalTemplate>? VehicleModelDecalTemplates { get; set; } // Đổi từ CarModelDecalTemplate
+        [JsonIgnore]
+        public ICollection<VehicleModelDecalType>? VehicleModelDecalTypes { get; set; }
     }
 }

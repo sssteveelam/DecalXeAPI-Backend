@@ -22,5 +22,8 @@ namespace DecalXeAPI.Models
         // Navigation Property: Một DecalType có thể được dùng trong nhiều DecalService.
         [JsonIgnore]
         public ICollection<DecalService>? DecalServices { get; set; }
+
+        [JsonIgnore]
+        public ICollection<VehicleModelDecalType>? VehicleModelDecalTypes { get; set; }
     }
 }

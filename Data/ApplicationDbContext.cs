@@ -26,6 +26,9 @@ namespace DecalXeAPI.Data
         public DbSet<CustomerVehicle> CustomerVehicles { get; set; }
         public DbSet<VehicleModelDecalTemplate> VehicleModelDecalTemplates { get; set; }
 
+        public DbSet<VehicleModelDecalType> VehicleModelDecalTypes { get; set; }
+
+
         // --- NHÓM QUẢN LÝ SẢN PHẨM & DỊCH VỤ ---
         public DbSet<Product> Products { get; set; }
         public DbSet<Category> Categories { get; set; }
@@ -48,6 +51,7 @@ namespace DecalXeAPI.Data
         public DbSet<Feedback> Feedbacks { get; set; }
         public DbSet<OrderStageHistory> OrderStageHistories { get; set; }
         public DbSet<DesignComment> DesignComments { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

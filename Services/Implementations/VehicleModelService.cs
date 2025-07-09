@@ -1,3 +1,6 @@
+
+
+
 // DecalXeAPI/Services/Implementations/VehicleModelService.cs
 using AutoMapper;
 using DecalXeAPI.Data;
@@ -114,5 +117,66 @@ namespace DecalXeAPI.Services.Implementations
             _logger.LogInformation("Đã xóa mẫu xe với ID: {ModelID}", id);
             return true;
         }
+
+        // --- BỔ SUNG CÁC PHƯƠNG THỨC MỚI ĐỂ QUẢN LÝ DECALTYPE TƯƠNG THÍCH ---
+        public async Task<(bool Success, string? ErrorMessage)> AssignDecalTypeToVehicleAsync(string modelId, string decalTypeId)
+        {
+            _logger.LogInformation("Yêu cầu gán DecalType {DecalTypeID} cho VehicleModel {ModelID}", decalTypeId, modelId);
+
+            if (await _context.VehicleModels.FindAsync(modelId) == null)
+                return (false, "Mẫu xe không tồn tại.");
+            if (await _context.DecalTypes.FindAsync(decalTypeId) == null)
+                return (false, "Loại decal không tồn tại.");
+            if (await _context.VehicleModelDecalTypes.AnyAsync(l => l.ModelID == modelId && l.DecalTypeID == decalTypeId))
+                return (false, "Loại decal này đã được gán cho mẫu xe.");
+
+            var link = new VehicleModelDecalType
+            {
+                VehicleModelDecalTypeID = Guid.NewGuid().ToString(),
+                ModelID = modelId,
+                DecalTypeID = decalTypeId
+            };
+
+            _context.VehicleModelDecalTypes.Add(link);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Gán thành công DecalType {DecalTypeID} cho VehicleModel {ModelID}", decalTypeId, modelId);
+            return (true, null);
+        }
+
+        public async Task<(bool Success, string? ErrorMessage)> UnassignDecalTypeFromVehicleAsync(string modelId, string decalTypeId)
+        {
+            _logger.LogInformation("Yêu cầu gỡ DecalType {DecalTypeID} khỏi VehicleModel {ModelID}", decalTypeId, modelId);
+
+            var link = await _context.VehicleModelDecalTypes
+                .FirstOrDefaultAsync(l => l.ModelID == modelId && l.DecalTypeID == decalTypeId);
+
+            if (link == null)
+                return (false, "Liên kết không tồn tại để xóa.");
+
+            _context.VehicleModelDecalTypes.Remove(link);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Gỡ thành công DecalType {DecalTypeID} khỏi VehicleModel {ModelID}", decalTypeId, modelId);
+            return (true, null);
+        }
+
+        public async Task<IEnumerable<DecalTypeDto>> GetCompatibleDecalTypesAsync(string modelId)
+        {
+            _logger.LogInformation("Yêu cầu lấy danh sách DecalType tương thích cho VehicleModel {ModelID}", modelId);
+
+            if (!await _context.VehicleModels.AnyAsync(m => m.ModelID == modelId))
+            {
+                // Trả về danh sách rỗng nếu model không tồn tại để tránh lỗi
+                return new List<DecalTypeDto>();
+            }
+
+            var compatibleTypes = await _context.VehicleModelDecalTypes
+                .Where(link => link.ModelID == modelId)
+                .Select(link => link.DecalType) // Chỉ chọn ra các DecalType từ liên kết
+                .ToListAsync();
+
+            // Dùng AutoMapper để chuyển đổi từ List<DecalType> sang List<DecalTypeDto>
+            return _mapper.Map<IEnumerable<DecalTypeDto>>(compatibleTypes);
+        }
+        
     }
 }

@@ -17,13 +17,13 @@ namespace DecalXeAPI.Controllers
         private readonly IVehicleModelService _modelService;
         private readonly IMapper _mapper;
         private readonly ApplicationDbContext _context; // Cần cho Put
-        public VehicleModelsController(IVehicleModelService modelService, IMapper mapper, ApplicationDbContext context )
+        public VehicleModelsController(IVehicleModelService modelService, IMapper mapper, ApplicationDbContext context)
         {
             _modelService = modelService;
             _mapper = mapper;
             _context = context; // Cần cho Put
         }
-        
+
 
         // GET: api/VehicleModels
         [HttpGet]
@@ -72,7 +72,7 @@ namespace DecalXeAPI.Controllers
             {
                 return NotFound();
             }
-            
+
             _mapper.Map(updateDto, model);
 
             var (success, errorMessage) = await _modelService.UpdateModelAsync(id, model);
@@ -99,5 +99,50 @@ namespace DecalXeAPI.Controllers
             }
             return NoContent();
         }
+        
+        // --- API MỚI ĐỂ QUẢN LÝ DECALTYPE TƯƠNG THÍCH CHO VEHICLEMODEL ---
+
+        /// <summary>
+        /// Lấy danh sách các loại decal tương thích với một mẫu xe cụ thể.
+        /// </summary>
+        [HttpGet("{modelId}/decaltypes")]
+        [AllowAnonymous] // Cho phép ai cũng có thể xem để tiện cho việc hiển thị ở frontend
+        public async Task<ActionResult<IEnumerable<DecalTypeDto>>> GetCompatibleDecalTypes(string modelId)
+        {
+            var decalTypes = await _modelService.GetCompatibleDecalTypesAsync(modelId);
+            return Ok(decalTypes);
+        }
+
+        /// <summary>
+        /// Gán một loại decal là tương thích với một mẫu xe.
+        /// </summary>
+        [HttpPost("{modelId}/decaltypes/{decalTypeId}")]
+        [Authorize(Roles = "Admin,Manager")]
+        public async Task<IActionResult> AssignDecalTypeToVehicle(string modelId, string decalTypeId)
+        {
+            var (success, errorMessage) = await _modelService.AssignDecalTypeToVehicleAsync(modelId, decalTypeId);
+            if (!success)
+            {
+                return BadRequest(new { message = errorMessage });
+            }
+            return Ok(new { message = "Gán loại decal cho mẫu xe thành công." });
+        }
+
+        /// <summary>
+        /// Gỡ (xóa) liên kết tương thích giữa một loại decal và một mẫu xe.
+        /// </summary>
+        [HttpDelete("{modelId}/decaltypes/{decalTypeId}")]
+        [Authorize(Roles = "Admin,Manager")]
+        public async Task<IActionResult> UnassignDecalTypeFromVehicle(string modelId, string decalTypeId)
+        {
+            var (success, errorMessage) = await _modelService.UnassignDecalTypeFromVehicleAsync(modelId, decalTypeId);
+            if (!success)
+            {
+                return BadRequest(new { message = errorMessage });
+            }
+            return NoContent();
+        }
+
+
     }
 }
