@@ -47,10 +47,15 @@ namespace DecalXeAPI.MappingProfiles
             CreateMap<UpdateStoreDto, Store>();
             CreateMap<CreateTechLaborPriceDto, TechLaborPrice>();
             CreateMap<UpdateTechLaborPriceDto, TechLaborPrice>();
+
             CreateMap<CreateServiceVehicleModelProductDto, ServiceVehicleModelProduct>();
             CreateMap<UpdateServiceVehicleModelProductDto, ServiceVehicleModelProduct>();
             CreateMap<CreateVehicleModelDto, VehicleModel>();
             CreateMap<UpdateVehicleModelDto, VehicleModel>();
+            CreateMap<VehicleModelDecalType, VehicleModelDecalTypeDto>()
+                .ForMember(dest => dest.ModelName, opt => opt.MapFrom(src => src.VehicleModel != null ? src.VehicleModel.ModelName : string.Empty))
+                .ForMember(dest => dest.DecalTypeName, opt => opt.MapFrom(src => src.DecalType != null ? src.DecalType.DecalTypeName : string.Empty));
+
             CreateMap<CreateWarrantyDto, Warranty>();
             CreateMap<UpdateWarrantyDto, Warranty>();            
             // DecalXeAPI/MappingProfiles/MainMappingProfile.cs
