@@ -16,5 +16,8 @@ namespace DecalXeAPI.Services.Interfaces
         // Hàm kiểm tra tồn tại (Exists) cần thiết cho Service này
         Task<bool> DecalTemplateExistsAsync(string id);
         Task<bool> DecalTypeExistsAsync(string id); // Cần để kiểm tra FK
+        // --- PHƯƠNG THỨC MỚI ---
+        Task<(bool Success, string? ErrorMessage)> AssignTemplateToVehicleAsync(string templateId, string modelId);
+        Task<(bool Success, string? ErrorMessage)> UnassignTemplateFromVehicleAsync(string templateId, string modelId);
     }
 }

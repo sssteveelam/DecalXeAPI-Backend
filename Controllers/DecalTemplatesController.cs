@@ -102,6 +102,32 @@ namespace DecalXeAPI.Controllers
                 return BadRequest(ex.Message);
             }
         }
+        
+        // --- API MỚI ĐỂ GÁN TEMPLATE VÀO XE ---
+        [HttpPost("{templateId}/vehicles/{modelId}")]
+        [Authorize(Roles = "Admin,Manager")]
+        public async Task<IActionResult> AssignTemplateToVehicle(string templateId, string modelId)
+        {
+            var (success, errorMessage) = await _decalTemplateService.AssignTemplateToVehicleAsync(templateId, modelId);
+            if (!success)
+            {
+                return BadRequest(new { message = errorMessage });
+            }
+            return Ok(new { message = "Gán mẫu decal cho xe thành công." });
+        }
+
+        // --- API MỚI ĐỂ GỠ TEMPLATE KHỎI XE ---
+        [HttpDelete("{templateId}/vehicles/{modelId}")]
+        [Authorize(Roles = "Admin,Manager")]
+        public async Task<IActionResult> UnassignTemplateFromVehicle(string templateId, string modelId)
+        {
+            var (success, errorMessage) = await _decalTemplateService.UnassignTemplateFromVehicleAsync(templateId, modelId);
+            if (!success)
+            {
+                return BadRequest(new { message = errorMessage });
+            }
+            return NoContent();
+        }
 
         // API: DELETE api/DecalTemplates/{id}
         [HttpDelete("{id}")]

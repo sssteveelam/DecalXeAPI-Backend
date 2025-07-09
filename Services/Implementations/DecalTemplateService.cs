@@ -124,6 +124,41 @@ namespace DecalXeAPI.Services.Implementations
             return true;
         }
 
+        // --- BỔ SUNG PHƯƠNG THỨC MỚI ---
+        public async Task<(bool Success, string? ErrorMessage)> AssignTemplateToVehicleAsync(string templateId, string modelId)
+        {
+            if (!await DecalTemplateExistsAsync(templateId))
+                return (false, "Mẫu decal không tồn tại.");
+            if (!await _context.VehicleModels.AnyAsync(m => m.ModelID == modelId))
+                return (false, "Mẫu xe không tồn tại.");
+            if (await _context.VehicleModelDecalTemplates.AnyAsync(l => l.TemplateID == templateId && l.ModelID == modelId))
+                return (false, "Mẫu decal này đã được gán cho mẫu xe.");
+
+            var link = new VehicleModelDecalTemplate
+            {
+                VehicleModelDecalTemplateID = Guid.NewGuid().ToString(),
+                TemplateID = templateId,
+                ModelID = modelId
+            };
+
+            _context.VehicleModelDecalTemplates.Add(link);
+            await _context.SaveChangesAsync();
+            return (true, null);
+        }
+
+        public async Task<(bool Success, string? ErrorMessage)> UnassignTemplateFromVehicleAsync(string templateId, string modelId)
+        {
+            var link = await _context.VehicleModelDecalTemplates
+                .FirstOrDefaultAsync(l => l.TemplateID == templateId && l.ModelID == modelId);
+
+            if (link == null)
+                return (false, "Liên kết không tồn tại để xóa.");
+
+            _context.VehicleModelDecalTemplates.Remove(link);
+            await _context.SaveChangesAsync();
+            return (true, null);
+        }
+
         // --- HÀM HỖ TRỢ: KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG (PUBLIC CHO INTERFACE) ---
         public async Task<bool> DecalTemplateExistsAsync(string id)
         {
