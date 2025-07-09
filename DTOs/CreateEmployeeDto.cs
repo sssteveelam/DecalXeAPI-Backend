@@ -14,5 +14,6 @@ namespace DecalXeAPI.DTOs
         [Required]
         public string StoreID { get; set; } = string.Empty;
         public string? AccountID { get; set; }
+        public bool IsActive { get; set; } = true;
     }
 }

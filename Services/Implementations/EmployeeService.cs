@@ -57,11 +57,12 @@ namespace DecalXeAPI.Services.Implementations
             return employeeDto;
         }
 
+        // Trong file: DecalXeAPI/Services/Implementations/EmployeeService.cs
         public async Task<EmployeeDto> CreateEmployeeAsync(Employee employee)
         {
             _logger.LogInformation("Yêu cầu tạo nhân viên mới: {FirstName} {LastName}", employee.FirstName, employee.LastName);
 
-            // Kiểm tra FKs
+            // Kiểm tra các khóa ngoại trước
             if (!string.IsNullOrEmpty(employee.StoreID) && !await StoreExistsAsync(employee.StoreID))
             {
                 _logger.LogWarning("StoreID không tồn tại khi tạo nhân viên: {StoreID}", employee.StoreID);
@@ -72,10 +73,21 @@ namespace DecalXeAPI.Services.Implementations
                 _logger.LogWarning("AccountID không tồn tại khi tạo nhân viên: {AccountID}", employee.AccountID);
                 throw new ArgumentException("AccountID không tồn tại.");
             }
+            
+            // --- BỔ SUNG LOGIC CHO IsActive TỪ ACCOUNT ---
+            // Vì DTO đã gán giá trị vào Account, ta chỉ cần đảm bảo Account không null
+            if (employee.Account != null)
+            {
+                // IsActive đã được gán vào đối tượng account từ trước khi gọi hàm này
+                // (thông qua AutoMapper hoặc gán trực tiếp trong Controller)
+                _logger.LogInformation("Tài khoản cho nhân viên mới sẽ có trạng thái IsActive = {IsActive}", employee.Account.IsActive);
+            }
+            // --- KẾT THÚC BỔ SUNG ---
 
             _context.Employees.Add(employee);
             await _context.SaveChangesAsync();
 
+            // Tải lại các thực thể liên quan để AutoMapper có thể ánh xạ đầy đủ
             await _context.Entry(employee).Reference(e => e.Account).LoadAsync();
             if (employee.Account != null)
             {
