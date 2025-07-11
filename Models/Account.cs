@@ -4,6 +4,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
+
+
 namespace DecalXeAPI.Models
 {
     public class Account
@@ -38,3 +40,5 @@ namespace DecalXeAPI.Models
         public ICollection<DesignComment>? DesignComments { get; set; }
     }
 }
+
+

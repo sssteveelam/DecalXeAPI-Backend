@@ -84,41 +84,35 @@ namespace DecalXeAPI.Controllers
 
         // API: PUT api/Accounts/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutAccount(string id, Account account)
+        public async Task<IActionResult> PutAccount(string id, UpdateAccountDto updateDto) // <-- Thay đổi quan trọng: Dùng UpdateAccountDto
         {
             _logger.LogInformation("Yêu cầu cập nhật tài khoản với ID: {AccountID}", id);
-            if (id != account.AccountID)
-            {
-                return BadRequest();
-            }
 
-            // Kiểm tra FKs chính
-            if (!string.IsNullOrEmpty(account.RoleID) && !RoleExists(account.RoleID))
+            // Giờ đây, chúng ta sẽ gọi đến service để kiểm tra, thay vì tự làm trong controller
+            if (!await _accountService.RoleExistsAsync(updateDto.RoleID))
             {
-                return BadRequest("RoleID không tồn tại.");
+                return BadRequest(new { message = "RoleID không tồn tại." });
             }
 
             try
             {
-                var success = await _accountService.UpdateAccountAsync(id, account);
+                // Truyền thẳng DTO vào service, service sẽ lo phần còn lại
+                var (success, errorMessage) = await _accountService.UpdateAccountAsync(id, updateDto);
 
                 if (!success)
                 {
-                    _logger.LogWarning("Không tìm thấy tài khoản để cập nhật với ID: {AccountID}", id);
-                    return NotFound();
+                    // Nếu không thành công, trả về lỗi mà service đã báo
+                    // Dùng object error để frontend dễ xử lý hơn
+                    return BadRequest(new { message = errorMessage });
                 }
 
-                _logger.LogInformation("Đã cập nhật tài khoản với ID: {AccountID}", id);
+                // Nếu thành công, trả về 204 No Content, báo hiệu đã cập nhật xong
                 return NoContent();
             }
-            catch (ArgumentException ex) // Bắt lỗi từ Service nếu có (ví dụ: username trùng lặp)
+            catch (DbUpdateConcurrencyException)
             {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật tài khoản: {ErrorMessage}", ex.Message);
-                return BadRequest(ex.Message);
-            }
-            catch (DbUpdateConcurrencyException) // Vẫn bắt riêng lỗi này ở Controller
-            {
-                if (!AccountExists(id)) // Vẫn dùng hàm hỗ trợ của Controller để kiểm tra tồn tại
+                // Các xử lý lỗi khác vẫn giữ nguyên
+                if (!await _accountService.AccountExistsAsync(id))
                 {
                     return NotFound();
                 }

@@ -64,6 +64,9 @@ namespace DecalXeAPI.MappingProfiles
                 
             CreateMap<Account, AccountDto>()
                 .ForMember(dest => dest.RoleName, opt => opt.MapFrom(src => src.Role != null ? src.Role.RoleName : string.Empty));
+            CreateMap<UpdateAccountDto, Account>(); 
+
+
             CreateMap<Employee, EmployeeDto>()
                 .ForMember(dest => dest.StoreName, opt => opt.MapFrom(src => src.Store != null ? src.Store.StoreName : string.Empty))
                 .ForMember(dest => dest.AccountUsername, opt => opt.MapFrom(src => src.Account != null ? src.Account.Username : null))

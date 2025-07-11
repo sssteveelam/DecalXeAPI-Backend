@@ -78,48 +78,42 @@ namespace DecalXeAPI.Services.Implementations
             return accountDto;
         }
 
-        public async Task<bool> UpdateAccountAsync(string id, Account account)
+
+        public async Task<(bool Success, string? ErrorMessage)> UpdateAccountAsync(string id, UpdateAccountDto updateDto)
         {
-            _logger.LogInformation("Yêu cầu cập nhật tài khoản với ID: {AccountID}", id);
+            _logger.LogInformation("Service bắt đầu cập nhật tài khoản với ID: {AccountID}", id);
 
-            if (id != account.AccountID)
-            {
-                _logger.LogWarning("ID trong tham số ({Id}) không khớp với AccountID trong body ({AccountIDBody})", id, account.AccountID);
-                return false;
-            }
-
-            if (!await AccountExistsAsync(id))
+            var accountToUpdate = await _context.Accounts.FindAsync(id);
+            if (accountToUpdate == null)
             {
                 _logger.LogWarning("Không tìm thấy tài khoản để cập nhật với ID: {AccountID}", id);
-                return false;
+                return (false, "Tài khoản không tồn tại.");
             }
 
-            if (await _context.Accounts.AnyAsync(a => a.Username == account.Username && a.AccountID != id))
+            // Kiểm tra username có bị trùng với người khác không
+            if (await _context.Accounts.AnyAsync(a => a.Username == updateDto.Username && a.AccountID != id))
             {
-                _logger.LogWarning("Username đã tồn tại khi cập nhật: {Username}", account.Username);
-                throw new ArgumentException("Username đã tồn tại.");
+                _logger.LogWarning("Username đã tồn tại khi cập nhật: {Username}", updateDto.Username);
+                return (false, "Username đã tồn tại.");
             }
 
-            if (!string.IsNullOrEmpty(account.RoleID) && !await RoleExistsAsync(account.RoleID))
-            {
-                _logger.LogWarning("RoleID không tồn tại: {RoleID}", account.RoleID);
-                throw new ArgumentException("RoleID không tồn tại.");
-            }
-
-            _context.Entry(account).State = EntityState.Modified;
+            // Dùng AutoMapper để ánh xạ các trường từ DTO vào đối tượng đã tìm được
+            // Bước này sẽ chỉ cập nhật các trường có trong UpdateAccountDto
+            // và bỏ qua PasswordHash một cách an toàn!
+            _mapper.Map(updateDto, accountToUpdate);
 
             try
             {
                 await _context.SaveChangesAsync();
-                _logger.LogInformation("Đã cập nhật tài khoản với ID: {AccountID}", id);
-                return true;
+                _logger.LogInformation("Đã cập nhật tài khoản với ID: {AccountID} thành công.", id);
+                return (true, null);
             }
             catch (DbUpdateConcurrencyException ex)
             {
                 _logger.LogError(ex, "Lỗi xung đột khi cập nhật tài khoản với ID: {AccountID}", id);
                 throw;
             }
-        }
+        }       
 
         // Trong file: DecalXeAPI/Services/Implementations/AccountService.cs
         public async Task<bool> DeleteAccountAsync(string id)
