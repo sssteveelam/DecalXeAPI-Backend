@@ -18,12 +18,14 @@ namespace DecalXeAPI.Controllers
         private readonly IVehicleModelService _modelService;
         private readonly IMapper _mapper;
         private readonly ApplicationDbContext _context;
+        private readonly IDecalTemplateService _decalTemplateService;
 
-        public VehicleModelsController(IVehicleModelService modelService, IMapper mapper, ApplicationDbContext context)
+        public VehicleModelsController(IVehicleModelService modelService, IMapper mapper, ApplicationDbContext context, IDecalTemplateService decalTemplateService)
         {
             _modelService = modelService;
             _mapper = mapper;
             _context = context;
+            _decalTemplateService = decalTemplateService;
         }
 
         // --- CÁC API QUẢN LÝ VEHICLE MODEL (GIỮ NGUYÊN) ---
@@ -123,6 +125,23 @@ namespace DecalXeAPI.Controllers
                 return BadRequest(new { message = errorMessage });
             }
             return NoContent();
+        }
+        
+
+        [HttpGet("{modelId}/templates")]
+        [AllowAnonymous] // Cho phép tất cả mọi người xem
+        public async Task<ActionResult<IEnumerable<DecalTemplateDto>>> GetTemplatesForVehicleModel(string modelId)
+        {
+            // Kiểm tra xem mẫu xe có tồn tại không để báo lỗi cho đẹp
+            var modelExists = await _modelService.GetModelByIdAsync(modelId);
+            if (modelExists == null)
+            {
+                return NotFound(new { message = "Không tìm thấy mẫu xe này." });
+            }
+
+            // Gọi service huynh đệ mình đã làm ở bước 1 để lấy danh sách template
+            var templates = await _decalTemplateService.GetTemplatesByModelIdAsync(modelId);
+            return Ok(templates);
         }
     }
 }

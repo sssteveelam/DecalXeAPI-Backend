@@ -169,5 +169,27 @@ namespace DecalXeAPI.Services.Implementations
         {
             return await _context.DecalTypes.AnyAsync(e => e.DecalTypeID == id);
         }
+
+
+        public async Task<IEnumerable<DecalTemplateDto>> GetTemplatesByModelIdAsync(string modelId)
+        {
+            _logger.LogInformation("Đang lấy danh sách các mẫu decal cho VehicleModel ID: {ModelID}", modelId);
+
+            // 1. Từ bảng liên kết, tìm tất cả những dòng có ModelID mà mình cần
+            var links = await _context.VehicleModelDecalTemplates
+                                    .Where(link => link.ModelID == modelId)
+                                    // 2. Từ những dòng đó, lấy thông tin chi tiết của Mẫu Decal (DecalTemplate)
+                                    .Include(link => link.DecalTemplate) 
+                                        // 3. Kèm theo đó, lấy luôn thông tin về Loại Decal (DecalType)
+                                        .ThenInclude(template => template.DecalType)
+                                    // 4. Chỉ chọn ra các đối tượng DecalTemplate hoàn chỉnh
+                                    .Select(link => link.DecalTemplate) 
+                                    .ToListAsync();
+
+            // 5. Dùng AutoMapper để "dịch" danh sách đó sang DTO và trả về
+            return _mapper.Map<List<DecalTemplateDto>>(links);
+        }
+
+        // --- KẾT THÚC PHƯƠNG THỨC MỚI ---
     }
 }

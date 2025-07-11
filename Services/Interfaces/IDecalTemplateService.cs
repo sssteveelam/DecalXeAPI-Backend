@@ -19,5 +19,7 @@ namespace DecalXeAPI.Services.Interfaces
         // --- PHƯƠNG THỨC MỚI ---
         Task<(bool Success, string? ErrorMessage)> AssignTemplateToVehicleAsync(string templateId, string modelId);
         Task<(bool Success, string? ErrorMessage)> UnassignTemplateFromVehicleAsync(string templateId, string modelId);
+        Task<IEnumerable<DecalTemplateDto>> GetTemplatesByModelIdAsync(string modelId);
+
     }
 }
