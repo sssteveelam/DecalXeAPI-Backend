@@ -32,5 +32,9 @@ namespace DecalXeAPI.Services.Interfaces
 
         // Phương thức kiểm tra sự tồn tại của Order (có thể dùng nội bộ trong Service)
         Task<bool> OrderExistsAsync(string id);
+
+        Task<(bool Success, string? ErrorMessage)> AssignEmployeeToOrderAsync(string orderId, string employeeId);
+        Task<(bool Success, string? ErrorMessage)> UnassignEmployeeFromOrderAsync(string orderId);
+        Task<EmployeeDto?> GetAssignedEmployeeForOrderAsync(string orderId);
     }
 }

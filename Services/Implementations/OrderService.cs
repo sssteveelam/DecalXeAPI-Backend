@@ -118,7 +118,7 @@ namespace DecalXeAPI.Services.Implementations
 
         public async Task<OrderDto> CreateOrderAsync(Order order)
         {
-             _logger.LogInformation("Yêu cầu tạo đơn hàng mới cho CustomerID: {CustomerID}", order.CustomerID);
+            _logger.LogInformation("Yêu cầu tạo đơn hàng mới cho CustomerID: {CustomerID}", order.CustomerID);
 
             if (order.CustomServiceRequest != null)
             {
@@ -128,7 +128,7 @@ namespace DecalXeAPI.Services.Implementations
             {
                 order.IsCustomDecal = false;
             }
-            
+
             _context.Orders.Add(order);
             await _context.SaveChangesAsync();
             _logger.LogInformation("Đã tạo Order mới với ID: {OrderID}", order.OrderID);
@@ -137,120 +137,179 @@ namespace DecalXeAPI.Services.Implementations
             await _context.Entry(order).Reference(o => o.Customer).LoadAsync();
             await _context.Entry(order).Reference(o => o.AssignedEmployee).LoadAsync();
             await _context.Entry(order).Reference(o => o.CustomerVehicle).LoadAsync();
-            
+
             var orderDto = _mapper.Map<OrderDto>(order);
             return orderDto;
         }
-        
+
         // ... (Các phương thức còn lại không thay đổi)
         public async Task<bool> UpdateOrderAsync(string id, Order order)
-        {
-            _logger.LogInformation("Yêu cầu cập nhật đơn hàng với ID: {OrderID}", id);
-            if (id != order.OrderID)
-            {
-                _logger.LogWarning("ID trong tham số ({Id}) không khớp với OrderID trong body ({OrderIDBody})", id, order.OrderID);
-                return false; 
-            }
+        {
+            _logger.LogInformation("Yêu cầu cập nhật đơn hàng với ID: {OrderID}", id);
+            if (id != order.OrderID)
+            {
+                _logger.LogWarning("ID trong tham số ({Id}) không khớp với OrderID trong body ({OrderIDBody})", id, order.OrderID);
+                return false;
+            }
 
-            if (!await OrderExistsAsync(id))
-            {
-                _logger.LogWarning("Không tìm thấy đơn hàng để cập nhật với ID: {OrderID}", id);
-                return false; 
-            }
+            if (!await OrderExistsAsync(id))
+            {
+                _logger.LogWarning("Không tìm thấy đơn hàng để cập nhật với ID: {OrderID}", id);
+                return false;
+            }
 
-            _context.Entry(order).State = EntityState.Modified;
+            _context.Entry(order).State = EntityState.Modified;
 
-            try
-            {
-                await _context.SaveChangesAsync();
-                _logger.LogInformation("Đã cập nhật đơn hàng với ID: {OrderID}", order.OrderID);
+            try
+            {
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Đã cập nhật đơn hàng với ID: {OrderID}", order.OrderID);
                 return true;
-            }
-            catch (DbUpdateConcurrencyException ex)
-            {
-                _logger.LogError(ex, "Lỗi xung đột khi cập nhật đơn hàng với ID: {OrderID}", id);
-                throw;
-            }
-        }
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                _logger.LogError(ex, "Lỗi xung đột khi cập nhật đơn hàng với ID: {OrderID}", id);
+                throw;
+            }
+        }
 
-        public async Task<bool> DeleteOrderAsync(string id)
-        {
-            _logger.LogInformation("Yêu cầu xóa đơn hàng với ID: {OrderID}", id);
-            var order = await _context.Orders.FindAsync(id);
-            if (order == null)
-            {
-                _logger.LogWarning("Không tìm thấy đơn hàng để xóa với ID: {OrderID}", id);
-                return false; 
-            }
-            _context.Orders.Remove(order);
-            await _context.SaveChangesAsync();
-            _logger.LogInformation("Đã xóa đơn hàng với ID: {OrderID}", id);
-            return true; 
-        }
+        public async Task<bool> DeleteOrderAsync(string id)
+        {
+            _logger.LogInformation("Yêu cầu xóa đơn hàng với ID: {OrderID}", id);
+            var order = await _context.Orders.FindAsync(id);
+            if (order == null)
+            {
+                _logger.LogWarning("Không tìm thấy đơn hàng để xóa với ID: {OrderID}", id);
+                return false;
+            }
+            _context.Orders.Remove(order);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Đã xóa đơn hàng với ID: {OrderID}", id);
+            return true;
+        }
         public async Task<bool> UpdateOrderStatusAsync(string id, string newStatus)
-        {
-            _logger.LogInformation("Yêu cầu cập nhật trạng thái đơn hàng {OrderID} thành {NewStatus}", id, newStatus);
-            var order = await _context.Orders.FindAsync(id);
-            if (order == null)
-            {
-                _logger.LogWarning("Không tìm thấy đơn hàng để cập nhật trạng thái với ID: {OrderID}", id);
-                return false;
-            }
+        {
+            _logger.LogInformation("Yêu cầu cập nhật trạng thái đơn hàng {OrderID} thành {NewStatus}", id, newStatus);
+            var order = await _context.Orders.FindAsync(id);
+            if (order == null)
+            {
+                _logger.LogWarning("Không tìm thấy đơn hàng để cập nhật trạng thái với ID: {OrderID}", id);
+                return false;
+            }
 
-            if (string.IsNullOrEmpty(newStatus))
-            {
-                _logger.LogWarning("Trạng thái mới rỗng cho OrderID: {OrderID}", id);
-                return false;
-            }
+            if (string.IsNullOrEmpty(newStatus))
+            {
+                _logger.LogWarning("Trạng thái mới rỗng cho OrderID: {OrderID}", id);
+                return false;
+            }
 
-            order.OrderStatus = newStatus;
-            _context.Orders.Update(order);
+            order.OrderStatus = newStatus;
+            _context.Orders.Update(order);
 
-            try
-            {
-                await _context.SaveChangesAsync();
-                _logger.LogInformation("Đã cập nhật trạng thái đơn hàng {OrderID} thành {NewStatus} thành công.", id, newStatus);
-                return true;
-            }
-            catch (DbUpdateConcurrencyException ex)
-            {
-                _logger.LogError(ex, "Lỗi xung đột khi cập nhật trạng thái đơn hàng {OrderID}", id);
-                throw; 
-            }
-        }
+            try
+            {
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Đã cập nhật trạng thái đơn hàng {OrderID} thành {NewStatus} thành công.", id, newStatus);
+                return true;
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                _logger.LogError(ex, "Lỗi xung đột khi cập nhật trạng thái đơn hàng {OrderID}", id);
+                throw;
+            }
+        }
 
-        public async Task<IEnumerable<SalesStatisticsDto>> GetSalesStatisticsAsync(DateTime? startDate, DateTime? endDate)
-        {
-            _logger.LogInformation("Yêu cầu thống kê doanh thu từ {StartDate} đến {EndDate}", startDate, endDate);
-            var query = _context.Orders.AsQueryable();
+        public async Task<IEnumerable<SalesStatisticsDto>> GetSalesStatisticsAsync(DateTime? startDate, DateTime? endDate)
+        {
+            _logger.LogInformation("Yêu cầu thống kê doanh thu từ {StartDate} đến {EndDate}", startDate, endDate);
+            var query = _context.Orders.AsQueryable();
 
-            if (startDate.HasValue)
-            {
-                query = query.Where(o => o.OrderDate >= startDate.Value);
-            }
-            if (endDate.HasValue)
-            {
-                query = query.Where(o => o.OrderDate < endDate.Value.AddDays(1));
-            }
+            if (startDate.HasValue)
+            {
+                query = query.Where(o => o.OrderDate >= startDate.Value);
+            }
+            if (endDate.HasValue)
+            {
+                query = query.Where(o => o.OrderDate < endDate.Value.AddDays(1));
+            }
 
-            var dailySales = await query
-                .GroupBy(o => o.OrderDate.Date)
-                .Select(g => new SalesStatisticsDto
-                {
-                    Date = g.Key,
-                    TotalSalesAmount = g.Sum(o => o.TotalAmount),
-                    TotalOrders = g.Count()
-                })
-                .OrderBy(s => s.Date)
-                .ToListAsync();
+            var dailySales = await query
+              .GroupBy(o => o.OrderDate.Date)
+              .Select(g => new SalesStatisticsDto
+              {
+                  Date = g.Key,
+                  TotalSalesAmount = g.Sum(o => o.TotalAmount),
+                  TotalOrders = g.Count()
+              })
+              .OrderBy(s => s.Date)
+              .ToListAsync();
 
-            _logger.LogInformation("Đã trả về {Count} bản ghi thống kê doanh thu.", dailySales.Count);
-            return dailySales;
-        }
+            _logger.LogInformation("Đã trả về {Count} bản ghi thống kê doanh thu.", dailySales.Count);
+            return dailySales;
+        }
 
-        public async Task<bool> OrderExistsAsync(string id)
-        {
-            return await _context.Orders.AnyAsync(e => e.OrderID == id);
-        }
+        public async Task<bool> OrderExistsAsync(string id)
+        {
+            return await _context.Orders.AnyAsync(e => e.OrderID == id);
+        }
+
+        public async Task<(bool Success, string? ErrorMessage)> AssignEmployeeToOrderAsync(string orderId, string employeeId)
+        {
+            var order = await _context.Orders.FindAsync(orderId);
+            if (order == null)
+            {
+                return (false, "Không tìm thấy đơn hàng.");
+            }
+
+            var employee = await _context.Employees.FindAsync(employeeId);
+            if (employee == null)
+            {
+                return (false, "Không tìm thấy nhân viên.");
+            }
+
+            order.AssignedEmployeeID = employeeId;
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Đã gán nhân viên {EmployeeId} cho đơn hàng {OrderId}", employeeId, orderId);
+            return (true, null);
+        }
+
+        public async Task<(bool Success, string? ErrorMessage)> UnassignEmployeeFromOrderAsync(string orderId)
+        {
+            var order = await _context.Orders.FindAsync(orderId);
+            if (order == null)
+            {
+                return (false, "Không tìm thấy đơn hàng.");
+            }
+
+            if (string.IsNullOrEmpty(order.AssignedEmployeeID))
+            {
+                return (false, "Đơn hàng này chưa được gán cho nhân viên nào.");
+            }
+
+            order.AssignedEmployeeID = null;
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Đã hủy gán nhân viên khỏi đơn hàng {OrderId}", orderId);
+            return (true, null);
+        }
+
+        public async Task<EmployeeDto?> GetAssignedEmployeeForOrderAsync(string orderId)
+        {
+            var order = await _context.Orders
+                                    .Include(o => o.AssignedEmployee)
+                                        .ThenInclude(e => e.Account)
+                                            .ThenInclude(a => a.Role) // Lấy luôn thông tin Role
+                                    .Include(o => o.AssignedEmployee)
+                                        .ThenInclude(e => e.Store) // Lấy thông tin Store
+                                    .FirstOrDefaultAsync(o => o.OrderID == orderId);
+
+            if (order == null || order.AssignedEmployee == null)
+            {
+                return null;
+            }
+
+            return _mapper.Map<EmployeeDto>(order.AssignedEmployee);
+        }
     }
+    
+
 }

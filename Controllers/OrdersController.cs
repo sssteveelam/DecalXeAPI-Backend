@@ -154,6 +154,56 @@ namespace DecalXeAPI.Controllers
             return Ok(salesData);
         }
 
+        /// <summary>
+        /// API để gán một nhân viên vào đơn hàng.
+        /// </summary>
+        /// <param name="orderId">ID của đơn hàng.</param>
+        /// <param name="employeeId">ID của nhân viên được gán.</param>
+        [HttpPut("{orderId}/assign/{employeeId}")]
+        [Authorize(Roles = "Admin,Manager,Sales")] // Chỉ định vai trò được phép
+        public async Task<IActionResult> AssignEmployee(string orderId, string employeeId)
+        {
+            var (success, errorMessage) = await _orderService.AssignEmployeeToOrderAsync(orderId, employeeId);
+            if (!success)
+            {
+                // Trả về lỗi 400 Bad Request kèm thông báo lỗi cụ thể từ Service
+                return BadRequest(new { message = errorMessage });
+            }
+            return NoContent(); // Thành công, trả về 204 No Content
+        }
+
+        /// <summary>
+        /// API để hủy gán nhân viên khỏi đơn hàng.
+        /// </summary>
+        /// <param name="orderId">ID của đơn hàng.</param>
+        [HttpDelete("{orderId}/assign")]
+        [Authorize(Roles = "Admin,Manager,Sales")] // Chỉ định vai trò được phép
+        public async Task<IActionResult> UnassignEmployee(string orderId)
+        {
+            var (success, errorMessage) = await _orderService.UnassignEmployeeFromOrderAsync(orderId);
+            if (!success)
+            {
+                return BadRequest(new { message = errorMessage });
+            }
+            return NoContent();
+        }
+
+        /// <summary>
+        /// API để xem thông tin nhân viên đã được gán cho một đơn hàng.
+        /// </summary>
+        /// <param name="orderId">ID của đơn hàng.</param>
+        [HttpGet("{orderId}/assigned-employee")]
+        public async Task<ActionResult<EmployeeDto>> GetAssignedEmployee(string orderId)
+        {
+            var employee = await _orderService.GetAssignedEmployeeForOrderAsync(orderId);
+            if (employee == null)
+            {
+                return NotFound(new { message = "Đơn hàng này không tồn tại hoặc chưa được gán cho nhân viên nào." });
+            }
+            return Ok(employee);
+        }
+
+
         // --- HÀM HỖ TRỢ (PRIVATE): KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG ---
         // Các hàm này vẫn được giữ ở Controller để kiểm tra FKs trước khi gọi Service
         private bool CustomerExists(string id) { return _context.Customers.Any(e => e.CustomerID == id); }
