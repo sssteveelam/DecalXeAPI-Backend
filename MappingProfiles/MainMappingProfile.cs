@@ -59,9 +59,12 @@ namespace DecalXeAPI.MappingProfiles
             CreateMap<CreateWarrantyDto, Warranty>();
             CreateMap<UpdateWarrantyDto, Warranty>();            
             // DecalXeAPI/MappingProfiles/MainMappingProfile.cs
+
             CreateMap<Product, ProductDto>()
-                .ForMember(dest => dest.Category, opt => opt.MapFrom(src => src.Category != null ? src.Category.CategoryName : string.Empty));
-                
+                .ForMember(dest => dest.CategoryName, opt => opt.MapFrom(src => src.Category != null ? src.Category.CategoryName : null)); // <-- MỚI
+            CreateMap<Category, CategoryDto>(); 
+
+
             CreateMap<Account, AccountDto>()
                 .ForMember(dest => dest.RoleName, opt => opt.MapFrom(src => src.Role != null ? src.Role.RoleName : string.Empty));
             CreateMap<UpdateAccountDto, Account>(); 

@@ -93,6 +93,8 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IVehicleBrandService, VehicleBrandService>();
 builder.Services.AddScoped<IVehicleModelService, VehicleModelService>();
 
+builder.Services.AddScoped<ICategoryService, CategoryService>(); // <-- THÊM DÒNG NÀY
+
 
 // Các Service cho các bảng mới
 builder.Services.AddScoped<IDepositService, DepositService>();
