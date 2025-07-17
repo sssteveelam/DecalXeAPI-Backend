@@ -58,50 +58,38 @@ namespace DecalXeAPI.Controllers
 
         // API: POST api/Categories
         [HttpPost]
-        public async Task<ActionResult<CategoryDto>> PostCategory(Category category)
+        public async Task<ActionResult<CategoryDto>> PostCategory([FromBody] CreateCategoryDto createCategoryDto)
         {
-            _logger.LogInformation("Yêu cầu tạo danh mục mới: {CategoryName}", category.CategoryName);
+            // Dùng AutoMapper để tạo một đối tượng Category mới từ DTO
+            var category = _mapper.Map<Category>(createCategoryDto);
+            category.CategoryID = Guid.NewGuid().ToString();;
 
-            try
-            {
-                var createdCategoryDto = await _categoryService.CreateCategoryAsync(category);
-                _logger.LogInformation("Đã tạo danh mục mới với ID: {CategoryID}", createdCategoryDto.CategoryID);
-                return CreatedAtAction(nameof(GetCategory), new { id = createdCategoryDto.CategoryID }, createdCategoryDto);
-            }
-            catch (ArgumentException ex)
-            {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi tạo danh mục: {ErrorMessage}", ex.Message);
-                return BadRequest(ex.Message);
-            }
+            _context.Categories.Add(category);
+            await _context.SaveChangesAsync();
+
+            // Trả về CategoryDto đầy đủ thông tin sau khi tạo thành công
+            var categoryDto = _mapper.Map<CategoryDto>(category);
+            return CreatedAtAction("GetCategory", new { id = category.CategoryID }, categoryDto);
         }
 
         // API: PUT api/Categories/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutCategory(string id, Category category)
+        public async Task<IActionResult> PutCategory(String id, [FromBody] UpdateCategoryDto updateCategoryDto)
         {
-            _logger.LogInformation("Yêu cầu cập nhật danh mục với ID: {CategoryID}", id);
-            if (id != category.CategoryID)
+            var category = await _context.Categories.FindAsync(id);
+            if (category == null)
             {
-                return BadRequest();
+                return NotFound();
             }
+
+            // Dùng AutoMapper để cập nhật category từ DTO
+            _mapper.Map(updateCategoryDto, category);
+
+            _context.Entry(category).State = EntityState.Modified;
 
             try
             {
-                var success = await _categoryService.UpdateCategoryAsync(id, category);
-
-                if (!success)
-                {
-                    _logger.LogWarning("Không tìm thấy danh mục để cập nhật với ID: {CategoryID}", id);
-                    return NotFound();
-                }
-
-                _logger.LogInformation("Đã cập nhật danh mục với ID: {CategoryID}", id);
-                return NoContent();
-            }
-            catch (ArgumentException ex)
-            {
-                _logger.LogError(ex, "Lỗi nghiệp vụ khi cập nhật danh mục: {ErrorMessage}", ex.Message);
-                return BadRequest(ex.Message);
+                await _context.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -114,6 +102,8 @@ namespace DecalXeAPI.Controllers
                     throw;
                 }
             }
+
+            return NoContent();
         }
 
         // API: DELETE api/Categories/{id}
