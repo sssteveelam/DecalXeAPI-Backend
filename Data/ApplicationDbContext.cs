@@ -30,19 +30,15 @@ namespace DecalXeAPI.Data
 
 
         // --- NHÓM QUẢN LÝ SẢN PHẨM & DỊCH VỤ ---
-        public DbSet<Product> Products { get; set; }
         public DbSet<Category> Categories { get; set; }
         public DbSet<DecalType> DecalTypes { get; set; }
         public DbSet<DecalService> DecalServices { get; set; }
         public DbSet<DecalTemplate> DecalTemplates { get; set; }
-        public DbSet<PrintingPriceDetail> PrintingPriceDetails { get; set; }
         public DbSet<TechLaborPrice> TechLaborPrices { get; set; }
-        public DbSet<ServiceVehicleModelProduct> ServiceVehicleModelProducts { get; set; }
 
         // --- NHÓM QUẢN LÝ ĐƠN HÀNG & NGHIỆP VỤ ---
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderDetail> OrderDetails { get; set; }
-        public DbSet<CustomServiceRequest> CustomServiceRequests { get; set; }
         public DbSet<Design> Designs { get; set; }
         public DbSet<DesignWorkOrder> DesignWorkOrders { get; set; }
         public DbSet<Payment> Payments { get; set; }
@@ -63,20 +59,14 @@ namespace DecalXeAPI.Data
                 .WithOne(dwo => dwo.Design)
                 .HasForeignKey<DesignWorkOrder>(dwo => dwo.DesignID);
 
-            modelBuilder.Entity<PrintingPriceDetail>()
-                .HasOne(ppd => ppd.DecalService)
-                .WithOne(ds => ds.PrintingPriceDetail!)
-                .HasForeignKey<PrintingPriceDetail>(ppd => ppd.ServiceID);
-
+            
             modelBuilder.Entity<DesignComment>()
                 .HasOne(dc => dc.ParentComment)
                 .WithMany(dc => dc.Replies!)
                 .HasForeignKey(dc => dc.ParentCommentID)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            modelBuilder.Entity<ServiceVehicleModelProduct>()
-                .HasKey(svm => new { svm.ServiceID, svm.VehicleModelID, svm.ProductID });
-
+          
             modelBuilder.Entity<TechLaborPrice>()
                 .HasKey(tlp => new { tlp.ServiceID, tlp.VehicleModelID });
         }

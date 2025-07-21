@@ -17,7 +17,5 @@ namespace DecalXeAPI.Models
         [MaxLength(500)]
         public string? Description { get; set; } // Mô tả
 
-        // Navigation property: Một danh mục có thể chứa nhiều sản phẩm
-        public ICollection<Product>? Products { get; set; }
     }
 }

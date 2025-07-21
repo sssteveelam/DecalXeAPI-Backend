@@ -74,14 +74,11 @@ builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<IStoreService, StoreService>();
 
-builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IDecalTypeService, DecalTypeService>();
 builder.Services.AddScoped<IDecalTemplateService, DecalTemplateService>();
-builder.Services.AddScoped<IPrintingPriceDetailService, PrintingPriceDetailService>();
 
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IOrderDetailService, OrderDetailService>();
-builder.Services.AddScoped<ICustomServiceRequestService, CustomServiceRequestService>();
 builder.Services.AddScoped<IDesignService, DesignService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IFeedbackService, FeedbackService>();
@@ -93,14 +90,12 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IVehicleBrandService, VehicleBrandService>();
 builder.Services.AddScoped<IVehicleModelService, VehicleModelService>();
 
-builder.Services.AddScoped<ICategoryService, CategoryService>(); // <-- THÊM DÒNG NÀY
 
 
 // Các Service cho các bảng mới
 builder.Services.AddScoped<IDepositService, DepositService>();
 builder.Services.AddScoped<IDesignWorkOrderService, DesignWorkOrderService>();
 builder.Services.AddScoped<ITechLaborPriceService, TechLaborPriceService>();
-builder.Services.AddScoped<IServiceVehicleModelProductService, ServiceVehicleModelProductService>();
 
 // 4. Cấu hình Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();

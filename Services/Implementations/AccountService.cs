@@ -143,14 +143,6 @@ namespace DecalXeAPI.Services.Implementations
                     throw new InvalidOperationException("Không thể xóa tài khoản này vì nhân viên đang được giao các đơn hàng chưa hoàn thành.");
                 }
 
-                // 2. Kiểm tra các yêu cầu tùy chỉnh đang hoạt động
-                bool hasActiveServiceRequests = await _context.CustomServiceRequests
-                    .AnyAsync(csr => csr.SalesEmployeeID == employeeId && csr.RequestStatus != "ConvertedToOrder" && csr.RequestStatus != "Cancelled");
-                if (hasActiveServiceRequests)
-                {
-                    _logger.LogWarning("Không thể xóa tài khoản {AccountID} vì nhân viên đang phụ trách các yêu cầu dịch vụ chưa được xử lý.", id);
-                    throw new InvalidOperationException("Không thể xóa tài khoản này vì nhân viên đang phụ trách các yêu cầu dịch vụ chưa được xử lý.");
-                }
 
                 // 3. Kiểm tra các công việc thiết kế đang hoạt động
                 bool hasActiveDesigns = await _context.Designs

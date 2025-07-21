@@ -32,9 +32,6 @@ namespace DecalXeAPI.Models
         public string? AssignedEmployeeID { get; set; } // FK_AssignedEmployeeID (có thể null ban đầu)
         public Employee? AssignedEmployee { get; set; }
 
-        // Mối quan hệ 1-1 với CustomServiceRequest
-        [JsonIgnore] // Tránh lỗi vòng lặp JSON khi include Order từ CustomServiceRequest
-        public CustomServiceRequest? CustomServiceRequest { get; set; } // Navigation Property cho yêu cầu tùy chỉnh
 
         // --- CỘT VÀ NAVIGATION PROPERTIES MỚI TỪ YÊU CẦU REVIEW (đã có từ bước 2.1.5) ---
         [ForeignKey("CustomerVehicle")] // Khóa ngoại tới xe của khách hàng

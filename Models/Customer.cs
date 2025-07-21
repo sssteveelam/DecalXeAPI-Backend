@@ -38,8 +38,6 @@ namespace DecalXeAPI.Models
         public ICollection<Order>? Orders { get; set; }
         [JsonIgnore] // Để tránh lỗi vòng lặp JSON
         public ICollection<Feedback>? Feedbacks { get; set; }
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
-        public ICollection<CustomServiceRequest>? CustomServiceRequests { get; set; }
 
         // --- NAVIGATION PROPERTY MỚI TỪ YÊU CẦU REVIEW ---
         [JsonIgnore] // Để tránh lỗi vòng lặp JSON

@@ -35,7 +35,6 @@ namespace DecalXeAPI.Services.Implementations
             var query = _context.Orders
                                 .Include(o => o.Customer)
                                 .Include(o => o.AssignedEmployee)
-                                .Include(o => o.CustomServiceRequest)
                                 .Include(o => o.CustomerVehicle) // <-- BƯỚC 1: NẠP DỮ LIỆU XE
                                 .AsQueryable();
 
@@ -51,7 +50,6 @@ namespace DecalXeAPI.Services.Implementations
                 query = query.Where(o =>
                     (o.Customer.FirstName + " " + o.Customer.LastName).ToLower().Contains(searchTermLower) ||
                     (o.AssignedEmployee != null && (o.AssignedEmployee.FirstName + " " + o.AssignedEmployee.LastName).ToLower().Contains(searchTermLower)) ||
-                    (o.CustomServiceRequest != null && o.CustomServiceRequest.Description.ToLower().Contains(searchTermLower)) ||
                     (o.CustomerVehicle != null && o.CustomerVehicle.ChassisNumber.ToLower().Contains(searchTermLower)) // <-- Sửa từ LicensePlate thành ChassisNumber
                 );
             }
@@ -100,7 +98,6 @@ namespace DecalXeAPI.Services.Implementations
             var order = await _context.Orders
                                     .Include(o => o.Customer)
                                     .Include(o => o.AssignedEmployee)
-                                    .Include(o => o.CustomServiceRequest)
                                     .Include(o => o.CustomerVehicle) // <-- Thêm Include ở đây nữa cho chắc ăn
                                         .ThenInclude(cv => cv.VehicleModel)
                                             .ThenInclude(vm => vm.VehicleBrand)
@@ -120,14 +117,10 @@ namespace DecalXeAPI.Services.Implementations
         {
             _logger.LogInformation("Yêu cầu tạo đơn hàng mới cho CustomerID: {CustomerID}", order.CustomerID);
 
-            if (order.CustomServiceRequest != null)
-            {
-                order.IsCustomDecal = true;
-            }
-            else
-            {
-                order.IsCustomDecal = false;
-            }
+
+
+
+           
 
             _context.Orders.Add(order);
             await _context.SaveChangesAsync();

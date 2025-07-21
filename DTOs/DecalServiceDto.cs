@@ -9,6 +9,5 @@ namespace DecalXeAPI.DTOs
         public int StandardWorkUnits { get; set; }
         public string DecalTypeID { get; set; } = string.Empty;
         public string DecalTypeName { get; set; } = string.Empty; // Tên loại decal để hiển thị
-        public string? PrintingPriceDetailID { get; set; } // <-- THÊM DÒNG NÀY
     }
 }

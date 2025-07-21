@@ -28,12 +28,6 @@ namespace DecalXeAPI.Models
         public string DecalTypeID { get; set; } = string.Empty; // FK_DecalTypeID
         public DecalType? DecalType { get; set; }
 
-        // --- NAVIGATION PROPERTY MỚI TỪ YÊU CẦU REVIEW ---
-        // Mối quan hệ 1-0..1 với PrintingPriceDetail (PrintingPriceDetail.ServiceID là PK/FK)
-        // EF Core sẽ tự hiểu mối quan hệ 1-1 nếu FK của PrintingPriceDetail là PK của nó và trỏ về đây.
-        // Đây chỉ là Navigation Property từ phía "một" (DecalService) đến PrintingPriceDetail.
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON nếu PrintingPriceDetail có Navigation Property ngược lại.
-        public PrintingPriceDetail? PrintingPriceDetail { get; set; }
 
         // --- NAVIGATION PROPERTIES HIỆN CÓ (Giữ nguyên) ---
         [JsonIgnore] // Để tránh lỗi vòng lặp JSON

@@ -13,8 +13,6 @@ namespace DecalXeAPI.DTOs
         public string OrderStatus { get; set; } = string.Empty;
         public string? AssignedEmployeeID { get; set; }
         public string? AssignedEmployeeFullName { get; set; }
-        public string? CustomServiceRequestID { get; set; }
-        public string? CustomServiceRequestDescription { get; set; }
         public string? VehicleID { get; set; }
 
         // --- CẬP NHẬT Ở ĐÂY ---

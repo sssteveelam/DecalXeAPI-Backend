@@ -29,12 +29,10 @@ namespace DecalXeAPI.Controllers
             _mapper = mapper;
         }
 
-        // API: GET api/Orders
         [HttpGet]
         [Authorize(Roles = "Admin,Manager,Sales,Technician,Customer")]
         public async Task<ActionResult<IEnumerable<OrderDto>>> GetOrders([FromQuery] OrderQueryParams queryParams)
         {
-            // Ủy quyền logic cho Service Layer
             var (orders, totalCount) = await _orderService.GetOrdersAsync(queryParams);
 
             Response.Headers.Append("X-Total-Count", totalCount.ToString());
@@ -45,36 +43,29 @@ namespace DecalXeAPI.Controllers
             return Ok(orders);
         }
 
-        // API: GET api/Orders/{id}
         [HttpGet("{id}")]
         [Authorize(Roles = "Admin,Manager,Sales,Technician,Customer")]
         public async Task<ActionResult<OrderDto>> GetOrder(string id)
         {
-            // Ủy quyền logic cho Service Layer
             var orderDto = await _orderService.GetOrderByIdAsync(id);
-
-            if (orderDto == null)
-            {
-                return NotFound();
-            }
-
+            if (orderDto == null) return NotFound();
             return Ok(orderDto);
         }
 
-        // API: POST api/Orders (ĐÃ NÂNG CẤP)
         [HttpPost]
         [Authorize(Roles = "Admin,Manager,Sales")]
         public async Task<ActionResult<OrderDto>> PostOrder(CreateOrderDto createDto)
         {
-            if (!string.IsNullOrEmpty(createDto.CustomerID) && !CustomerExists(createDto.CustomerID))
+            if (!CustomerExists(createDto.CustomerID))
             {
                 return BadRequest("CustomerID không tồn tại.");
             }
-            // ... các bước kiểm tra FKs khác ...
+            if (!string.IsNullOrEmpty(createDto.VehicleID) && !VehicleExists(createDto.VehicleID))
+            {
+                return BadRequest("VehicleID không tồn tại.");
+            }
 
             var order = _mapper.Map<Order>(createDto);
-            
-            // Server sẽ tự gán các giá trị mặc định khi tạo
             order.OrderStatus = "New";
             order.CurrentStage = "New Profile";
 
@@ -82,64 +73,37 @@ namespace DecalXeAPI.Controllers
             return CreatedAtAction(nameof(GetOrder), new { id = orderDto.OrderID }, orderDto);
         }
 
-        // API: PUT api/Orders/{id} (ĐÃ NÂNG CẤP)
         [HttpPut("{id}")]
         [Authorize(Roles = "Admin,Manager,Sales")]
         public async Task<IActionResult> PutOrder(string id, UpdateOrderDto updateDto)
         {
             var order = await _context.Orders.FindAsync(id);
-            if (order == null)
-            {
-                return NotFound();
-            }
-            
-            // ... kiểm tra các FKs trong updateDto nếu cần ...
-            
+            if (order == null) return NotFound();
+
             _mapper.Map(updateDto, order);
 
             var success = await _orderService.UpdateOrderAsync(id, order);
-            if (!success)
-            {
-                return NotFound();
-            }
+            if (!success) return NotFound();
 
             return NoContent();
         }
 
-        // API: DELETE api/Orders/{id}
         [HttpDelete("{id}")]
         [Authorize(Roles = "Admin,Manager")]
         public async Task<IActionResult> DeleteOrder(string id)
         {
-            // Ủy quyền logic xóa Order cho Service Layer
             var success = await _orderService.DeleteOrderAsync(id);
-
-            if (!success)
-            {
-                return NotFound(); // Service trả về false nếu không tìm thấy
-            }
-
+            if (!success) return NotFound();
             return NoContent();
         }
 
-        // API: PUT api/Orders/{id}/status
         [HttpPut("{id}/status")]
         [Authorize(Roles = "Admin,Manager,Technician")]
         public async Task<IActionResult> UpdateOrderStatus(string id, [FromBody] string newStatus)
         {
-            // Ủy quyền logic cập nhật trạng thái cho Service Layer
             var success = await _orderService.UpdateOrderStatusAsync(id, newStatus);
-
-            // Service sẽ trả về false nếu Order không tồn tại hoặc newStatus là rỗng
-            if (!success && !await _orderService.OrderExistsAsync(id)) // Kiểm tra lại OrderExists nếu Service báo false
-            {
-                return NotFound();
-            }
-            else if (!success) // Nếu Service báo false vì lý do khác (ví dụ: newStatus rỗng)
-            {
-                return BadRequest("Trạng thái mới không được rỗng.");
-            }
-
+            if (!success && !await _orderService.OrderExistsAsync(id)) return NotFound();
+            if (!success) return BadRequest("Trạng thái mới không được rỗng.");
             return NoContent();
         }
 
@@ -206,8 +170,9 @@ namespace DecalXeAPI.Controllers
 
         // --- HÀM HỖ TRỢ (PRIVATE): KIỂM TRA SỰ TỒN TẠI CỦA CÁC ĐỐI TƯỢNG ---
         // Các hàm này vẫn được giữ ở Controller để kiểm tra FKs trước khi gọi Service
+
         private bool CustomerExists(string id) { return _context.Customers.Any(e => e.CustomerID == id); }
-        private bool EmployeeExists(string id) { return _context.Employees.Any(e => e.EmployeeID == id); }
-        private bool CustomServiceRequestExists(string id) { return _context.CustomServiceRequests.Any(e => e.CustomRequestID == id); }
+        private bool VehicleExists(string id) { return _context.CustomerVehicles.Any(e => e.VehicleID == id); }
+
     }
 }
