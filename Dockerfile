@@ -2,8 +2,8 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 COPY . .
-RUN dotnet restore "DecalXeAPI/DecalXeAPI.csproj"
-WORKDIR "/src/DecalXeAPI"
+# Đã sửa: không còn "DecalXeAPI/" ở trước nữa
+RUN dotnet restore "DecalXeAPI.csproj"
 RUN dotnet publish "DecalXeAPI.csproj" -c Release -o /app/publish
 
 # Giai đoạn 2: Chạy ứng dụng
