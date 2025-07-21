@@ -1,34 +1,13 @@
-# Giai đoạn Build: Sử dụng .NET SDK 8.0 để build ứng dụng
-# Đây là base image chứa .NET 8.0 SDK
+# Giai đoạn 1: Build ứng dụng
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /app
-
-# Copy các file .csproj và khôi phục các gói NuGet
-COPY ["DecalXeAPI.csproj", "."]
-RUN dotnet restore
-
-# Copy toàn bộ mã nguồn của ứng dụng
+WORKDIR /src
 COPY . .
+RUN dotnet restore "DecalXeAPI/DecalXeAPI.csproj"
+WORKDIR "/src/DecalXeAPI"
+RUN dotnet publish "DecalXeAPI.csproj" -c Release -o /app/publish
 
-# Build ứng dụng ở chế độ Release
-# --no-restore: không chạy dotnet restore lại (đã làm ở trên)
-# -o /app/build: xuất bản kết quả build vào thư mục /app/build
-RUN dotnet build "DecalXeAPI.csproj" -c Release -o /app/build
-
-# Giai đoạn Publish: Tạo bản phân phối cuối cùng
-# Sử dụng runtime-image nhẹ hơn chỉ chứa môi trường chạy .NET 8.0
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS publish
+# Giai đoạn 2: Chạy ứng dụng
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
-
-# Copy kết quả build từ giai đoạn 'build' sang giai đoạn 'publish'
-COPY --from=build /app/build .
-
-# Định nghĩa cổng mà ứng dụng sẽ lắng nghe
-# Mặc định của ASP.NET Core là 8080 cho HTTP và 8081 cho HTTPS
-# Railway sẽ map cổng public của nó vào cổng này
-ENV ASPNETCORE_URLS=http://+:8080
-EXPOSE 8080
-
-# Lệnh chạy ứng dụng khi container khởi động
-# Tên DLL sẽ là tên project của bạn (ví dụ: DecalXeAPI.dll)
+COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "DecalXeAPI.dll"]
