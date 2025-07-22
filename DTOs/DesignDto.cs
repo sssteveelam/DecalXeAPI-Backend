@@ -13,6 +13,7 @@ namespace DecalXeAPI.DTOs
         public bool IsAIGenerated { get; set; }
         public string? AIModelUsed { get; set; }
         public decimal DesignPrice { get; set; } // Thêm trường mới
+        public string? Size { get; set; } // Kích thước decal
 
         /// <summary>
         /// Danh sách các item template trong design này

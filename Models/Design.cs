@@ -35,6 +35,12 @@ namespace DecalXeAPI.Models
         [Column(TypeName = "decimal(18,2)")]
         public decimal DesignPrice { get; set; } // Thêm giá tiền thiết kế
 
+        /// <summary>
+        /// Kích thước của bộ decal (ví dụ: "20cm x 50cm", "Bộ tem trùm cho Exciter 150")
+        /// </summary>
+        [MaxLength(200)]
+        public string? Size { get; set; } // Kích thước decal
+
         // Navigation properties
         public DesignWorkOrder? DesignWorkOrder { get; set; }
 

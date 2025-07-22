@@ -16,5 +16,8 @@ namespace DecalXeAPI.DTOs
         public string? AIModelUsed { get; set; }
         [Required]
         public decimal DesignPrice { get; set; }
+        
+        [MaxLength(200)]
+        public string? Size { get; set; } // Kích thước decal
     }
 }
