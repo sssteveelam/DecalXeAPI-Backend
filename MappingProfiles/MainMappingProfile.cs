@@ -106,13 +106,12 @@ namespace DecalXeAPI.MappingProfiles
             CreateMap<Design, DesignDto>()
                 .ForMember(dest => dest.DesignerFullName, opt => opt.MapFrom(src => src.Designer != null ? src.Designer.FirstName + " " + src.Designer.LastName : null));
 
-            // HUYNH ĐÃ SỬA LẠI HOÀN CHỈNH ÁNH XẠ CHO ORDER
+            // UPDATED: Order mapping without Customer relationship
             CreateMap<Order, OrderDto>()
-                .ForMember(dest => dest.CustomerFullName, opt => opt.MapFrom(src => src.Customer != null ? src.Customer.FirstName + " " + src.Customer.LastName : string.Empty))
                 .ForMember(dest => dest.AssignedEmployeeFullName, opt => opt.MapFrom(src => src.AssignedEmployee != null ? src.AssignedEmployee.FirstName + " " + src.AssignedEmployee.LastName : null))
-                .ForMember(dest => dest.ChassisNumber, opt => opt.MapFrom(src => src.CustomerVehicle != null ? src.CustomerVehicle.ChassisNumber : null)) // Đã sửa LicensePlate -> ChassisNumber
-                .ForMember(dest => dest.VehicleModelName, opt => opt.MapFrom(src => src.CustomerVehicle != null && src.CustomerVehicle.VehicleModel != null ? src.CustomerVehicle.VehicleModel.ModelName : null)) // Sửa CarModel -> VehicleModel
-                .ForMember(dest => dest.VehicleBrandName, opt => opt.MapFrom(src => src.CustomerVehicle != null && src.CustomerVehicle.VehicleModel != null && src.CustomerVehicle.VehicleModel.VehicleBrand != null ? src.CustomerVehicle.VehicleModel.VehicleBrand.BrandName : null)) // Sửa CarModel -> VehicleModel
+                .ForMember(dest => dest.ChassisNumber, opt => opt.MapFrom(src => src.CustomerVehicle != null ? src.CustomerVehicle.ChassisNumber : null))
+                .ForMember(dest => dest.VehicleModelName, opt => opt.MapFrom(src => src.CustomerVehicle != null && src.CustomerVehicle.VehicleModel != null ? src.CustomerVehicle.VehicleModel.ModelName : null))
+                .ForMember(dest => dest.VehicleBrandName, opt => opt.MapFrom(src => src.CustomerVehicle != null && src.CustomerVehicle.VehicleModel != null && src.CustomerVehicle.VehicleModel.VehicleBrand != null ? src.CustomerVehicle.VehicleModel.VehicleBrand.BrandName : null))
                 .ForMember(dest => dest.IsCustomDecal, opt => opt.MapFrom(src => src.IsCustomDecal));
 
             CreateMap<OrderDetail, OrderDetailDto>()

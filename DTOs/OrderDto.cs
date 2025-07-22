@@ -6,8 +6,6 @@ namespace DecalXeAPI.DTOs
     public class OrderDto
     {
         public string OrderID { get; set; } = string.Empty;
-        public string CustomerID { get; set; } = string.Empty;
-        public string CustomerFullName { get; set; } = string.Empty;
         public DateTime OrderDate { get; set; }
         public decimal TotalAmount { get; set; }
         public string OrderStatus { get; set; } = string.Empty;

@@ -11,11 +11,6 @@ namespace DecalXeAPI.Models
         [Key]
         public string OrderID { get; set; } = Guid.NewGuid().ToString(); // PK
 
-        // Khóa ngoại (Foreign Key): Một Order thuộc về một Customer
-        [ForeignKey("Customer")]
-        public string CustomerID { get; set; } = string.Empty; // FK_CustomerID
-        public Customer? Customer { get; set; }
-
         [Required]
         public DateTime OrderDate { get; set; } = DateTime.UtcNow; // Ngày đặt hàng, dùng UtcNow cho chuẩn múi giờ
 

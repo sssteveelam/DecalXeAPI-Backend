@@ -33,7 +33,6 @@ namespace DecalXeAPI.Services.Implementations
                                     queryParams.SearchTerm, queryParams.Status, queryParams.SortBy, queryParams.SortOrder, queryParams.PageNumber, queryParams.PageSize);
 
             var query = _context.Orders
-                                .Include(o => o.Customer)
                                 .Include(o => o.AssignedEmployee)
                                 .Include(o => o.CustomerVehicle) // <-- BƯỚC 1: NẠP DỮ LIỆU XE
                                 .AsQueryable();
@@ -46,9 +45,8 @@ namespace DecalXeAPI.Services.Implementations
             if (!string.IsNullOrEmpty(queryParams.SearchTerm))
             {
                 var searchTermLower = queryParams.SearchTerm.ToLower();
-                // BƯỚC 2: CẬP NHẬT LẠI TOÀN BỘ LOGIC TÌM KIẾM
+                // BƯỚC 2: CẬP NHẬT LẠI TOÀN BỘ LOGIC TÌM KIẾM (REMOVED CUSTOMER SEARCH)
                 query = query.Where(o =>
-                    (o.Customer.FirstName + " " + o.Customer.LastName).ToLower().Contains(searchTermLower) ||
                     (o.AssignedEmployee != null && (o.AssignedEmployee.FirstName + " " + o.AssignedEmployee.LastName).ToLower().Contains(searchTermLower)) ||
                     (o.CustomerVehicle != null && o.CustomerVehicle.ChassisNumber.ToLower().Contains(searchTermLower)) // <-- Sửa từ LicensePlate thành ChassisNumber
                 );
@@ -64,9 +62,7 @@ namespace DecalXeAPI.Services.Implementations
                     case "totalamount":
                         query = queryParams.SortOrder.ToLower() == "desc" ? query.OrderByDescending(o => o.TotalAmount) : query.OrderBy(o => o.TotalAmount);
                         break;
-                    case "customername":
-                        query = queryParams.SortOrder.ToLower() == "desc" ? query.OrderByDescending(o => o.Customer.LastName).ThenByDescending(o => o.Customer.FirstName) : query.OrderBy(o => o.Customer.LastName).ThenBy(o => o.Customer.FirstName);
-                        break;
+                    // Removed customername sorting as Customer is disconnected
                     case "orderstatus":
                         query = queryParams.SortOrder.ToLower() == "desc" ? query.OrderByDescending(o => o.OrderStatus) : query.OrderBy(o => o.OrderStatus);
                         break;
@@ -96,7 +92,6 @@ namespace DecalXeAPI.Services.Implementations
         {
             _logger.LogInformation("Yêu cầu lấy thông tin đơn hàng với ID: {OrderID}", id);
             var order = await _context.Orders
-                                    .Include(o => o.Customer)
                                     .Include(o => o.AssignedEmployee)
                                     .Include(o => o.CustomerVehicle) // <-- Thêm Include ở đây nữa cho chắc ăn
                                         .ThenInclude(cv => cv.VehicleModel)
@@ -115,7 +110,7 @@ namespace DecalXeAPI.Services.Implementations
 
         public async Task<OrderDto> CreateOrderAsync(Order order)
         {
-            _logger.LogInformation("Yêu cầu tạo đơn hàng mới cho CustomerID: {CustomerID}", order.CustomerID);
+            _logger.LogInformation("Yêu cầu tạo đơn hàng mới");
 
 
 
@@ -127,7 +122,6 @@ namespace DecalXeAPI.Services.Implementations
             _logger.LogInformation("Đã tạo Order mới với ID: {OrderID}", order.OrderID);
 
             // Tải lại các thực thể liên quan để AutoMapper có thể ánh xạ đầy đủ
-            await _context.Entry(order).Reference(o => o.Customer).LoadAsync();
             await _context.Entry(order).Reference(o => o.AssignedEmployee).LoadAsync();
             await _context.Entry(order).Reference(o => o.CustomerVehicle).LoadAsync();
 

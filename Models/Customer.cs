@@ -35,8 +35,6 @@ namespace DecalXeAPI.Models
 
         // --- NAVIGATION PROPERTIES HIỆN CÓ (Giữ nguyên) ---
         [JsonIgnore] // Để tránh lỗi vòng lặp JSON
-        public ICollection<Order>? Orders { get; set; }
-        [JsonIgnore] // Để tránh lỗi vòng lặp JSON
         public ICollection<Feedback>? Feedbacks { get; set; }
 
         // --- NAVIGATION PROPERTY MỚI TỪ YÊU CẦU REVIEW ---

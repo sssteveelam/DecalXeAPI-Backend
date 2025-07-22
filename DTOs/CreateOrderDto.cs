@@ -8,9 +8,6 @@ namespace DecalXeAPI.DTOs
     public class CreateOrderDto
     {
         [Required]
-        public string CustomerID { get; set; } = string.Empty;
-
-        [Required]
         [Column(TypeName = "decimal(18,2)")]
         public decimal TotalAmount { get; set; }
 
