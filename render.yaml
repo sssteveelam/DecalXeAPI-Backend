@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: decalxe-api
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: singapore
+    branch: main
+    healthCheckPath: /swagger
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://0.0.0.0:10000
+      - key: DATABASE_URL
+        value: Host=db.ggvnxocvdcikktrbllvk.supabase.co;Port=5432;Database=postgres;Username=postgres;Password=rgQfHH7+8v6FR!+;Ssl Mode=Require;Trust Server Certificate=true
+    buildCommand: echo "Using Dockerfile for build"
+    startCommand: dotnet DecalXeAPI.dll --urls http://0.0.0.0:10000
