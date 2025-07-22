@@ -69,25 +69,6 @@ namespace DecalXeAPI.Migrations
                     b.ToTable("AdminDetails");
                 });
 
-            modelBuilder.Entity("DecalXeAPI.Models.Category", b =>
-                {
-                    b.Property<string>("CategoryID")
-                        .HasColumnType("text");
-
-                    b.Property<string>("CategoryName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.HasKey("CategoryID");
-
-                    b.ToTable("Categories");
-                });
-
             modelBuilder.Entity("DecalXeAPI.Models.Customer", b =>
                 {
                     b.Property<string>("CustomerID")
