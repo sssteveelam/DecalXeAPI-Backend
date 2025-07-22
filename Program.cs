@@ -89,6 +89,7 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 // Các Service cho Vehicle
 builder.Services.AddScoped<IVehicleBrandService, VehicleBrandService>();
 builder.Services.AddScoped<IVehicleModelService, VehicleModelService>();
+builder.Services.AddScoped<ICustomerVehicleService, CustomerVehicleService>();
 
 
 
