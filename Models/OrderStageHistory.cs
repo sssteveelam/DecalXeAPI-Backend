@@ -30,5 +30,12 @@ namespace DecalXeAPI.Models
 
         [MaxLength(500)] // Giới hạn độ dài tối đa của ghi chú.
         public string? Notes { get; set; } // Ghi chú thêm về lý do hoặc chi tiết của việc chuyển giai đoạn (có thể là NULL).
+
+        /// <summary>
+        /// Trạng thái/Giai đoạn của đơn hàng tại thời điểm ghi nhận lịch sử này
+        /// Sử dụng enum OrderStage để chuẩn hóa các giai đoạn
+        /// </summary>
+        [Required] // Trường bắt buộc để đảm bảo mỗi lịch sử đều có giai đoạn rõ ràng
+        public OrderStage Stage { get; set; } // Giai đoạn hiện tại của đơn hàng
     }
 }

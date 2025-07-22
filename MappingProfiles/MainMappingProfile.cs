@@ -131,6 +131,10 @@ namespace DecalXeAPI.MappingProfiles
 
             CreateMap<OrderStageHistory, OrderStageHistoryDto>()
                 .ForMember(dest => dest.ChangedByEmployeeFullName, opt => opt.MapFrom(src => src.ChangedByEmployee != null ? src.ChangedByEmployee.FirstName + " " + src.ChangedByEmployee.LastName : null));
+
+            // Mapping cho Create và Update DTOs
+            CreateMap<CreateOrderStageHistoryDto, OrderStageHistory>();
+            CreateMap<UpdateOrderStageHistoryDto, OrderStageHistory>();
            
             CreateMap<DesignComment, DesignCommentDto>()
                 .ForMember(dest => dest.SenderUsername, opt => opt.MapFrom(src => src.SenderAccount != null ? src.SenderAccount.Username : null))
