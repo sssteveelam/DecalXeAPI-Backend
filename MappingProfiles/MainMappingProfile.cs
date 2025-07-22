@@ -82,6 +82,9 @@ namespace DecalXeAPI.MappingProfiles
                 .ForMember(dest => dest.VehicleModelName, opt => opt.MapFrom(src => src.VehicleModel != null ? src.VehicleModel.ModelName : string.Empty))
                 .ForMember(dest => dest.VehicleBrandName, opt => opt.MapFrom(src => src.VehicleModel != null && src.VehicleModel.VehicleBrand != null ? src.VehicleModel.VehicleBrand.BrandName : string.Empty));
 
+            CreateMap<CreateCustomerVehicleDto, CustomerVehicle>();
+            CreateMap<UpdateCustomerVehicleDto, CustomerVehicle>();
+
             // --- ÁNH XẠ CÁC BẢNG LIÊN QUAN ĐẾN DỊCH VỤ VÀ DECAL ---
             CreateMap<DecalService, DecalServiceDto>()
                 .ForMember(dest => dest.DecalTypeName, opt => opt.MapFrom(src => src.DecalType != null ? src.DecalType.DecalTypeName : string.Empty));

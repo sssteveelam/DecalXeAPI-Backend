@@ -16,6 +16,9 @@ namespace DecalXeAPI.Models
         [MaxLength(50)] // Tăng độ dài cho số khung
         public string ChassisNumber { get; set; } = string.Empty; // Thay thế LicensePlate
 
+        [MaxLength(20)]
+        public string? LicensePlate { get; set; } // Biển số xe
+
         [MaxLength(50)]
         public string? Color { get; set; }
 

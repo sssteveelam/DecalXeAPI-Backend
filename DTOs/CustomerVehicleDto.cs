@@ -5,7 +5,8 @@ namespace DecalXeAPI.DTOs
     {
         public string VehicleID { get; set; } = string.Empty;
         // Đổi LicensePlate thành ChassisNumber để đồng bộ với Model
-        public string ChassisNumber { get; set; } = string.Empty; 
+        public string ChassisNumber { get; set; } = string.Empty;
+        public string? LicensePlate { get; set; } // Biển số xe 
         public string? Color { get; set; }
         public int? Year { get; set; }
         public decimal? InitialKM { get; set; }
