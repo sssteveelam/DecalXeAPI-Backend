@@ -30,7 +30,6 @@ namespace DecalXeAPI.Data
 
 
         // --- NHÓM QUẢN LÝ SẢN PHẨM & DỊCH VỤ ---
-        public DbSet<Category> Categories { get; set; }
         public DbSet<DecalType> DecalTypes { get; set; }
         public DbSet<DecalService> DecalServices { get; set; }
         public DbSet<DecalTemplate> DecalTemplates { get; set; }
