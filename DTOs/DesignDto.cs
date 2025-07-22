@@ -12,7 +12,11 @@ namespace DecalXeAPI.DTOs
         public string ApprovalStatus { get; set; } = string.Empty;
         public bool IsAIGenerated { get; set; }
         public string? AIModelUsed { get; set; }
-        // AIPrompt đã được xóa
         public decimal DesignPrice { get; set; } // Thêm trường mới
+
+        /// <summary>
+        /// Danh sách các item template trong design này
+        /// </summary>
+        public ICollection<DesignTemplateItemDto>? TemplateItems { get; set; }
     }
 }

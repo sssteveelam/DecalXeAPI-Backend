@@ -85,6 +85,11 @@ namespace DecalXeAPI.MappingProfiles
             CreateMap<CreateCustomerVehicleDto, CustomerVehicle>();
             CreateMap<UpdateCustomerVehicleDto, CustomerVehicle>();
 
+            // --- ÁNH XẠ CHO DESIGN TEMPLATE ITEMS ---
+            CreateMap<DesignTemplateItem, DesignTemplateItemDto>();
+            CreateMap<CreateDesignTemplateItemDto, DesignTemplateItem>();
+            CreateMap<UpdateDesignTemplateItemDto, DesignTemplateItem>();
+
             // --- ÁNH XẠ CÁC BẢNG LIÊN QUAN ĐẾN DỊCH VỤ VÀ DECAL ---
             CreateMap<DecalService, DecalServiceDto>()
                 .ForMember(dest => dest.DecalTypeName, opt => opt.MapFrom(src => src.DecalType != null ? src.DecalType.DecalTypeName : string.Empty));

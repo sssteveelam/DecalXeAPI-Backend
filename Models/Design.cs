@@ -35,9 +35,14 @@ namespace DecalXeAPI.Models
         [Column(TypeName = "decimal(18,2)")]
         public decimal DesignPrice { get; set; } // Thêm giá tiền thiết kế
 
-        // OrderID và AIPrompt đã được xóa
-        // Mở file Models/Design.cs và thêm dòng này vào
+        // Navigation properties
         public DesignWorkOrder? DesignWorkOrder { get; set; }
+
+        /// <summary>
+        /// Collection of template items that make up this design
+        /// Each item represents a specific decal piece with its placement position
+        /// </summary>
+        public virtual ICollection<DesignTemplateItem>? TemplateItems { get; set; }
     }
 }
 

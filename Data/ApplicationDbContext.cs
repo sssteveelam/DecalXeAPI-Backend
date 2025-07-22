@@ -39,6 +39,7 @@ namespace DecalXeAPI.Data
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderDetail> OrderDetails { get; set; }
         public DbSet<Design> Designs { get; set; }
+        public DbSet<DesignTemplateItem> DesignTemplateItems { get; set; }
         public DbSet<DesignWorkOrder> DesignWorkOrders { get; set; }
         public DbSet<Payment> Payments { get; set; }
         public DbSet<Deposit> Deposits { get; set; }
@@ -58,7 +59,13 @@ namespace DecalXeAPI.Data
                 .WithOne(dwo => dwo.Design)
                 .HasForeignKey<DesignWorkOrder>(dwo => dwo.DesignID);
 
-            
+            // Configure Design -> DesignTemplateItem relationship
+            modelBuilder.Entity<DesignTemplateItem>()
+                .HasOne(dti => dti.Design)
+                .WithMany(d => d.TemplateItems)
+                .HasForeignKey(dti => dti.DesignId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             modelBuilder.Entity<DesignComment>()
                 .HasOne(dc => dc.ParentComment)
                 .WithMany(dc => dc.Replies!)
